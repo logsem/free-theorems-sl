@@ -107,6 +107,8 @@ Inductive expr :=
   (* Prophecy *)
   | NewProph
   | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)
+  (* trace stuff *)
+  | Emit (tag : string) (e : expr)
 with val :=
   | LitV (l : base_lit)
   | RecV (f x : binder) (e : expr)
@@ -185,9 +187,11 @@ Definition vals_compare_safe (vl v1 : val) : Prop :=
   val_is_unboxed vl ∨ val_is_unboxed v1.
 Arguments vals_compare_safe !_ !_ /.
 
+Definition event : Type := (string * base_lit).
 (** The state: heaps of vals. *)
 Record state : Type := {
   heap: gmap loc val;
+  trace: list event;
   used_proph_id: gset proph_id;
 }.
 
@@ -243,6 +247,7 @@ Proof.
      | NewProph, NewProph => left _
      | Resolve e0 e1 e2, Resolve e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
+     | Emit s1 e1, Emit s2 e2 => cast_if_and (decide (s1 = s2)) (decide (e1 = e2))
      | _, _ => right _
      end
    with gov (v1 v2 : val) {struct v1} : Decision (v1 = v2) :=
@@ -322,7 +327,8 @@ Proof.
      | FAA e1 e2 => GenNode 17 [go e1; go e2]
      | NewProph => GenNode 18 []
      | Resolve e0 e1 e2 => GenNode 19 [go e0; go e1; go e2]
-     end
+     | Emit s e => GenNode 20 [GenLeaf (inl (inl s)); go e]
+    end
    with gov v :=
      match v with
      | LitV l => GenLeaf (inr (inl l))
@@ -357,6 +363,7 @@ Proof.
      | GenNode 17 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 18 [] => NewProph
      | GenNode 19 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2)
+     | GenNode 20 [GenLeaf (inl (inl s)); e] => Emit s (go e)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
@@ -371,7 +378,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -379,7 +386,7 @@ Instance val_countable : Countable val.
 Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
 Instance state_inhabited : Inhabited state :=
-  populate {| heap := inhabitant; used_proph_id := inhabitant |}.
+  populate {| heap := inhabitant; trace := inhabitant; used_proph_id := inhabitant |}.
 Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
 Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
 
@@ -415,7 +422,8 @@ Inductive ectx_item :=
   | FaaRCtx (e1 : expr)
   | ResolveLCtx (ctx : ectx_item) (v1 : val) (v2 : val)
   | ResolveMCtx (e0 : expr) (v2 : val)
-  | ResolveRCtx (e0 : expr) (e1 : expr).
+  | ResolveRCtx (e0 : expr) (e1 : expr)
+  | EmitCtx (tag : string).
 
 (** Contextual closure will only reduce [e] in [Resolve e (Val _) (Val _)] if
 the local context of [e] is non-empty. As a consequence, the first argument of
@@ -452,6 +460,7 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | ResolveLCtx K v1 v2 => Resolve (fill_item K e) (Val v1) (Val v2)
   | ResolveMCtx ex v2 => Resolve ex e (Val v2)
   | ResolveRCtx ex e1 => Resolve ex e1 e
+  | EmitCtx tag => Emit tag e
   end.
 
 (** Substitution *)
@@ -479,6 +488,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
   | NewProph => NewProph
   | Resolve ex e1 e2 => Resolve (subst x v ex) (subst x v e1) (subst x v e2)
+  | Emit tag e => Emit tag (subst x v e)
   end.
 
 Definition subst' (mx : binder) (v : val) : expr → expr :=
@@ -545,11 +555,15 @@ Definition bin_op_eval (op : bin_op) (v1 v2 : val) : option val :=
     end.
 
 Definition state_upd_heap (f: gmap loc val → gmap loc val) (σ: state) : state :=
-  {| heap := f σ.(heap); used_proph_id := σ.(used_proph_id) |}.
+  {| heap := f σ.(heap); trace := σ.(trace); used_proph_id := σ.(used_proph_id) |}.
 Arguments state_upd_heap _ !_ /.
 
+Definition state_upd_trace (f: list event → list event) (σ: state) : state :=
+  {| heap := σ.(heap); trace := f σ.(trace); used_proph_id := σ.(used_proph_id) |}.
+Arguments state_upd_trace _ !_ /.
+
 Definition state_upd_used_proph_id (f: gset proph_id → gset proph_id) (σ: state) : state :=
-  {| heap := σ.(heap); used_proph_id := f σ.(used_proph_id) |}.
+  {| heap := σ.(heap); trace := σ.(trace); used_proph_id := f σ.(used_proph_id) |}.
 Arguments state_upd_used_proph_id _ !_ /.
 
 Fixpoint heap_array (l : loc) (vs : list val) : gmap loc val :=
@@ -674,7 +688,10 @@ Inductive head_step : expr → state → list observation → expr → state →
   | ResolveS p v e σ w σ' κs ts :
      head_step e σ κs (Val v) σ' ts →
      head_step (Resolve e (Val $ LitV $ LitProphecy p) (Val w)) σ
-               (κs ++ [(p, (v, w))]) (Val v) σ' ts.
+               (κs ++ [(p, (v, w))]) (Val v) σ' ts
+  | EmitS tag l σ :
+     head_step (Emit tag (Val (LitV l))) σ [] (Val $ LitV LitUnit)
+               (state_upd_trace (fun t => t ++ [(tag, l)]) σ) [].
 
 (** Basic properties about the language *)
 Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
