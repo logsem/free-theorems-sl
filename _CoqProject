@@ -6,3 +6,4 @@
 -arg -w -arg -ambiguous-paths
 
 theories/incr2.v
+theories/heap_lang/lang.v
