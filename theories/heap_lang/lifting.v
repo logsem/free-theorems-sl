@@ -121,17 +121,14 @@ Proof.
     eapply (proj1 (to_agree_included (a:leibnizO A) e)) in Hsub'.
     apply leibniz_equiv in Hsub'. subst e.
     cbn in Hsub.
-    pose proof Hv as Hv'.
-    apply (delete_valid _ n) in Hv'. rewrite /= delete_insert in Hv'.
+    apply (delete_valid _ n) in Hv. rewrite /= delete_insert in Hv.
     2: { eapply not_elem_of_dom. intros ?%gmap_of_trace_dom. lia. }
     assert (gmap_of_trace (S n) h ≼ gmap_of_trace (S n) t).
     { apply lookup_included. intros i.
       eapply (proj1 (lookup_included _ _)) with i in Hsub.
-      destruct (decide (i = n)).
-      { subst.
-        rewrite (_ : gmap_of_trace (S n) h !! n = None).
-        rewrite (_ : gmap_of_trace (S n) t !! n = None).
-        done.
+      destruct (decide (i = n)); subst.
+      { rewrite (_ : gmap_of_trace (S n) h !! n = None).
+        rewrite (_ : gmap_of_trace (S n) t !! n = None) //.
         all: eapply not_elem_of_dom.
         all: intros ?%gmap_of_trace_dom; lia. }
       rewrite !lookup_insert_ne // in Hsub. }
