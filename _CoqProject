@@ -7,3 +7,7 @@
 
 theories/incr2.v
 theories/heap_lang/lang.v
+theories/heap_lang/locations.v
+theories/heap_lang/tactics.v
+theories/heap_lang/notation.v
+theories/heap_lang/lifting.v
