@@ -42,10 +42,17 @@ Class traceG Σ := TraceG {
   trace_name : gname;
 }.
 
+Definition traceΣ : gFunctors :=
+  #[GFunctor (authR (optionUR (exclR traceO)));
+    GFunctor (authR (gmapUR nat (agreeR eventO)))].
+
 Class trace_preG Σ := TracePreG {
   trace_hist_preG_inG :> inG Σ (authR (gmapUR nat (agreeR eventO)));
   trace_preG_inG :> inG Σ (authR (optionUR (exclR (leibnizO (list event)))));
 }.
+
+Instance subG_tracePreG : subG traceΣ Σ → trace_preG Σ.
+Proof. solve_inG. Qed.
 
 Class heapG Σ := HeapG {
   heapG_invG : invG Σ;
@@ -143,6 +150,25 @@ Proof.
   iDestruct (own_op with "[$H1 $H2]") as "H".
   iDestruct (own_valid with "H") as %[Hsub Hv]%auth_both_valid.
   iPureIntro. eapply gmap_of_trace_hist_valid_prefix; eauto.
+Qed.
+
+Lemma gmap_of_trace_valid {A} (l: list A) (n: nat):
+  ✓ gmap_of_trace n l.
+Proof.
+  revert n. induction l.
+  { cbn. done. }
+  { intro. cbn. eapply (@insert_valid _ _ _ (agreeR (leibnizO A))); eauto; done. }
+Qed.
+
+Lemma trace_auth_init `{hT: trace_preG Σ} (t: list event) :
+  ⊢ |==> ∃ H: traceG Σ, trace_auth t.
+Proof.
+  iMod (own_alloc (● Excl' (t: traceO))) as (γ) "Hγ".
+  by apply auth_auth_valid.
+  iMod (own_alloc (● gmap_of_trace 0 t)) as (γh) "Hγh".
+  apply auth_auth_valid. apply gmap_of_trace_valid.
+  iModIntro. iExists (TraceG _ _ γh _ γ).
+  rewrite /trace_auth. iFrame.
 Qed.
 
 Instance heapG_irisG `{!heapG Σ} : irisG heap_lang Σ := {
