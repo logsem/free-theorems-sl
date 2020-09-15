@@ -1,13 +1,15 @@
 From iris.base_logic.lib Require Import invariants.
 From iris.program_logic Require Export weakestpre.
-From iris.heap_lang Require Import notation proofmode.
-From iris.heap_lang.lib Require Import par.
 From iris.program_logic Require Import adequacy.
+From iris.heap_lang Require Import notation lang proofmode.
+From iris.heap_lang.lib Require Import par.
 
 Definition incr2 : val :=
   rec: "loop" "l" :=
     (("l" <- !"l" + #2) ||| ("l" <- !"l" + #2)) ;;
     "loop" "l".
+
+Open Scope Z.
 
 Lemma Zeven_add_2 n : Z.even n -> Z.even (n + 2).
 Proof.
@@ -26,7 +28,7 @@ Section S.
     iIntros (φ) "#Hi Hφ". iLöb as "IH".
     wp_lam. wp_bind (_ ||| _)%E. wp_pures.
     (* specification for the two threads *)
-    iAssert (WP #ℓ <- ! #ℓ + #2 {{ _, True }})%I with "[Hi]" as "Ht".
+    iAssert (WP #ℓ <- ! #ℓ + #2 {{ _, True }})%I with "[Hi]" as "#Ht".
     { wp_bind (!#ℓ)%E. iInv N as (x) ">[Hℓ %]" "Hclose". wp_load.
       iMod ("Hclose" with "[Hℓ]"). now eauto.
       iModIntro. wp_pures.
@@ -41,7 +43,8 @@ End S.
 
 Class heapPreG Σ := HeapPreG {
   heap_preG_iris :> invPreG Σ;
-  heap_preG_heap :> gen_heapPreG loc val Σ;
+  heap_preG_heap :> gen_heapPreG loc (option val) Σ;
+  heap_preG_inv_heap :> inv_heapPreG loc (option val) Σ;
   heap_preG_proph :> proph_mapPreG proph_id (val * val) Σ;
 }.
 
@@ -53,7 +56,7 @@ Section S.
   Lemma invariant_adequacy :
     forall (ℓ : loc) (σ1 σ2 : state) (es: list expr),
       let φ := (fun (σ: state) => ∃ (x:Z),
-                  heap σ !! ℓ = Some (#x) ∧ Z.even x) in
+                  heap σ !! ℓ = Some (Some (#x)) ∧ Z.even x) in
       rtc erased_step ([incr2 #ℓ], σ1) (es, σ2) →
       φ σ1 →
       φ σ2.
@@ -66,21 +69,19 @@ Section S.
     eapply L; eauto. intros Hinv κs. clear L.
 
     (* Allocate heap resources corresponding to (heap σ1) *)
-    iDestruct (gen_heap_init (delete ℓ (heap σ1))) as ">H".
-    iDestruct "H" as (Hheap) "Hσ1".
+    iMod (gen_heap_init (delete ℓ (heap σ1))) as (Hheap) "Hσ1".
     (* Also allocate the prophecy-related resources, that appear in the standard
        state interpretation in heapG_irisG (this is needed for things to match
        later on). *)
-    iDestruct (proph_map_init κs (used_proph_id σ1)) as ">H".
-    iDestruct "H" as (Hproph) "Hpr1".
-
+    iMod (proph_map_init κs (used_proph_id σ1)) as (Hproph) "Hpr1".
+    iMod (inv_heap_init loc (option val)) as (Hi) ">Hi1".
     (* /!\ do not use 'pose proof', as [heapG_invG HeapΣ] needs to
        stay convertible to Hinv for things to typecheck later on. *)
-    set (HeapΣ := HeapG Σ Hinv Hheap Hproph).
+    set (HeapΣ := HeapG Σ Hinv Hheap Hi Hproph).
 
-    (* Add ℓ back to the heap, so that we get a corresponding pointsto *)
+    (* Add ℓ back to the heap, so that we get a corresponding points-to *)
     destruct Hσ1 as [v1 [Hσ1 E1]].
-    iMod (gen_heap_alloc (delete ℓ (heap σ1)) ℓ (#v1) with "Hσ1")
+    iMod (gen_heap_alloc (delete ℓ (heap σ1)) ℓ (Some #v1) with "Hσ1")
       as "(Hσ1 & Hℓ & ?)".
     by rewrite lookup_delete.
 
@@ -111,14 +112,13 @@ End S.
 
 Theorem invariant_adequacy' (ℓ : loc) (σ1 σ2 : state) (es: list expr) :
     let φ := (fun (σ: state) =>
-              ∃ (x:Z), heap σ !! ℓ = Some (#x) ∧ Z.even x) in
+              ∃ (x:Z), heap σ !! ℓ = Some (Some (#x)) ∧ Z.even x) in
     φ σ1 →
     rtc erased_step ([incr2 #ℓ], σ1) (es, σ2) →
     φ σ2.
 Proof.
-  set (Σ := #[invΣ; gen_heapΣ loc val; spawnΣ; proph_mapΣ proph_id (val * val)]).
-  set (HG := HeapPreG Σ _ _ _).
+  set (Σ := #[invΣ; gen_heapΣ loc (option val); inv_heapΣ loc (option val); proph_mapΣ proph_id (val * val); spawnΣ]).
+  set (HG := HeapPreG Σ _ _ _ _).
   intros. eapply (@invariant_adequacy nroot Σ); eauto.
   typeclasses eauto.
 Qed.
-
