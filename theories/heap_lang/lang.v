@@ -2,7 +2,7 @@ From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
 From iris.program_logic Require Export language ectx_language ectxi_language.
-From iris.heap_lang Require Export locations.
+From intensional Require Export locations.
 Set Default Proof Using "Type".
 
 (** heap_lang.  A fairly simple language used for common Iris examples.
@@ -558,9 +558,9 @@ Definition state_upd_heap (f: gmap loc val → gmap loc val) (σ: state) : state
   {| heap := f σ.(heap); trace := σ.(trace); used_proph_id := σ.(used_proph_id) |}.
 Arguments state_upd_heap _ !_ /.
 
-Definition state_upd_trace (f: list event → list event) (σ: state) : state :=
-  {| heap := σ.(heap); trace := f σ.(trace); used_proph_id := σ.(used_proph_id) |}.
-Arguments state_upd_trace _ !_ /.
+Definition state_add_event (e: event) (σ: state) : state :=
+  {| heap := σ.(heap); trace := σ.(trace) ++ [e]; used_proph_id := σ.(used_proph_id) |}.
+Arguments state_add_event _ !_ /.
 
 Definition state_upd_used_proph_id (f: gset proph_id → gset proph_id) (σ: state) : state :=
   {| heap := σ.(heap); trace := σ.(trace); used_proph_id := f σ.(used_proph_id) |}.
@@ -691,7 +691,7 @@ Inductive head_step : expr → state → list observation → expr → state →
                (κs ++ [(p, (v, w))]) (Val v) σ' ts
   | EmitS tag l σ :
      head_step (Emit tag (Val (LitV l))) σ [] (Val $ LitV LitUnit)
-               (state_upd_trace (fun t => t ++ [(tag, l)]) σ) [].
+               (state_add_event (tag, l) σ) [].
 
 (** Basic properties about the language *)
 Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
