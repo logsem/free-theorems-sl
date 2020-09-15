@@ -103,6 +103,51 @@ Proof.
   Unshelve. all: typeclasses eauto.
 Qed.
 
+Lemma gmap_of_trace_hist_valid_prefix `{traceG Σ} {A} n (t: list A) h :
+  ✓ gmap_of_trace n t →
+  gmap_of_trace n h ≼ gmap_of_trace n t →
+  h `prefix_of` t.
+Proof.
+  revert n t. induction h as [| a h].
+  { cbn. intros. apply prefix_nil. }
+  { intros n t Hv Hsub.
+    pose proof (proj1 (lookup_included _ _) Hsub) as Hsub'.
+    destruct t as [| e t].
+    { exfalso. specialize (Hsub' n).
+      rewrite /= lookup_insert lookup_empty in Hsub'.
+      apply option_included in Hsub' as [HH|(? & ? & ? & HH & ?)]; inversion HH. }
+    specialize (Hsub' n). rewrite /= !lookup_insert in Hsub'.
+    eapply (proj1 (Some_included_total _ _)) in Hsub'.
+    eapply (proj1 (to_agree_included (a:leibnizO A) e)) in Hsub'.
+    apply leibniz_equiv in Hsub'. subst e.
+    cbn in Hsub.
+    pose proof Hv as Hv'.
+    apply (delete_valid _ n) in Hv'. rewrite /= delete_insert in Hv'.
+    2: { eapply not_elem_of_dom. intros ?%gmap_of_trace_dom. lia. }
+    assert (gmap_of_trace (S n) h ≼ gmap_of_trace (S n) t).
+    { apply lookup_included. intros i.
+      eapply (proj1 (lookup_included _ _)) with i in Hsub.
+      destruct (decide (i = n)).
+      { subst.
+        rewrite (_ : gmap_of_trace (S n) h !! n = None).
+        rewrite (_ : gmap_of_trace (S n) t !! n = None).
+        done.
+        all: eapply not_elem_of_dom.
+        all: intros ?%gmap_of_trace_dom; lia. }
+      rewrite !lookup_insert_ne // in Hsub. }
+    eapply prefix_cons, IHh; eauto. }
+  Unshelve. all: typeclasses eauto.
+Qed.
+
+Lemma hist_trace_auth_prefix `{traceG Σ} t h :
+  trace_auth t -∗ hist h -∗ ⌜ h `prefix_of` t ⌝.
+Proof.
+  rewrite /trace_auth /hist. iIntros "[_ H1] H2".
+  iDestruct (own_op with "[$H1 $H2]") as "H".
+  iDestruct (own_valid with "H") as %[Hsub Hv]%auth_both_valid.
+  iPureIntro. eapply gmap_of_trace_hist_valid_prefix; eauto.
+Qed.
+
 Instance heapG_irisG `{!heapG Σ} : irisG heap_lang Σ := {
   iris_invG := heapG_invG;
   state_interp σ κs _ :=
