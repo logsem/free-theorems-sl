@@ -12,3 +12,4 @@ theories/heap_lang/tactics.v
 theories/heap_lang/notation.v
 theories/heap_lang/lifting.v
 theories/heap_lang/array.v
+theories/heap_lang/proofmode.v
