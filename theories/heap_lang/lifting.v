@@ -261,7 +261,7 @@ Instance cmpxchg_atomic s v0 v1 v2 : Atomic s (CmpXchg (Val v0) (Val v1) (Val v2
 Proof. solve_atomic. Qed.
 Instance faa_atomic s v1 v2 : Atomic s (FAA (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
-Instance emit_atomic s tag v : Atomic s (Emit tag (LitV v)).
+Instance emit_atomic s tag v : Atomic s (Emit tag (Val v)).
 Proof. solve_atomic. Qed.
 
 Instance new_proph_atomic s : Atomic s NewProph.
@@ -379,10 +379,10 @@ Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types l : loc.
 
-Lemma wp_emit s E tr tag lit :
+Lemma wp_emit s E tr tag v :
   {{{ trace_is tr }}}
-    Emit tag (LitV lit) @ s; E
-  {{{ RET (LitV LitUnit); trace_is (tr ++ [(tag, lit)]) }}}.
+    Emit tag v @ s; E
+  {{{ RET (LitV LitUnit); trace_is (tr ++ [(tag, v)]) }}}.
 Proof.
   iIntros (φ) "Ht Hφ". iApply wp_lift_atomic_head_step; [done|].
   iIntros (σ1 κ κs n) "(? & ? & ?) !>"; iSplit; first by eauto.

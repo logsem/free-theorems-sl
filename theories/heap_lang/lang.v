@@ -187,7 +187,7 @@ Definition vals_compare_safe (vl v1 : val) : Prop :=
   val_is_unboxed vl ∨ val_is_unboxed v1.
 Arguments vals_compare_safe !_ !_ /.
 
-Definition event : Type := (string * base_lit).
+Definition event : Type := (string * val).
 (** The state: heaps of vals. *)
 Record state : Type := {
   heap: gmap loc val;
@@ -689,9 +689,9 @@ Inductive head_step : expr → state → list observation → expr → state →
      head_step e σ κs (Val v) σ' ts →
      head_step (Resolve e (Val $ LitV $ LitProphecy p) (Val w)) σ
                (κs ++ [(p, (v, w))]) (Val v) σ' ts
-  | EmitS tag l σ :
-     head_step (Emit tag (Val (LitV l))) σ [] (Val $ LitV LitUnit)
-               (state_add_event (tag, l) σ) [].
+  | EmitS tag v σ :
+     head_step (Emit tag (Val v)) σ [] (Val $ LitV LitUnit)
+               (state_add_event (tag, v) σ) [].
 
 (** Basic properties about the language *)
 Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
