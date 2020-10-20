@@ -23,9 +23,33 @@ Proof.
   intros Hwp; eapply (wp_adequacy _ _); iIntros (??) "".
   iMod (gen_heap_init σ.(heap)) as (?) "Hh".
   iMod (proph_map_init κs σ.(used_proph_id)) as (?) "Hp".
-  iMod (trace_auth_init σ.(trace)) as (?) "Ht".
+  iMod (trace_auth_init σ.(trace)) as (?) "(Ht & _ & _)".
   iModIntro. iExists
     (λ σ κs, (gen_heap_ctx σ.(heap) ∗ trace_auth σ.(trace) ∗ proph_map_ctx κs σ.(used_proph_id))%I),
     (λ _, True%I).
   iFrame. iApply (Hwp (HeapG _ _ _ _ _)).
+Qed.
+
+Definition heap_invariance Σ `{!heapPreG Σ} (N: namespace) (I: list event → Prop) s e σ :
+  I (trace σ) →
+  (∀ `{!heapG Σ}, ⊢ trace_inv N I -∗ trace_is (trace σ) -∗ WP e @ s; ⊤ {{ _, True }}) →
+  ∀ σ' t,
+    rtc erased_step ([e], σ) (t, σ') →
+    I (trace σ').
+Proof.
+  intros HI Hwp σ' t.
+  eapply (wp_invariance Σ _ s _ _ _ _ (I (trace σ'))). iIntros (Hinv κs) "".
+  iMod (gen_heap_init σ.(heap)) as (?) "Hh".
+  iMod (proph_map_init κs σ.(used_proph_id)) as (?) "Hp".
+  iMod (trace_auth_init σ.(trace)) as (?) "(Hta & Ht & Hth)".
+  iDestruct (inv_alloc N _ (∃ t, trace_half_frag t ∗ ⌜I t⌝) with "[Hth]") as ">#HI".
+  { iNext. eauto. }
+  iModIntro. iExists
+    (λ σ κs _, (gen_heap_ctx σ.(heap) ∗ trace_auth σ.(trace) ∗ proph_map_ctx κs σ.(used_proph_id))%I),
+    (λ _, True%I).
+  iFrame. iSplitL.
+  { iDestruct (Hwp (HeapG _ _ _ _ _)) as "Hwp". iApply ("Hwp" with "HI Ht"). }
+  iIntros "(_ & Hta & _)". iExists _.
+  iInv "HI" as ">Ht'" "_". iDestruct "Ht'" as (t') "(Ht' & %)".
+  iDestruct (trace_auth_half_frag_agree with "Hta Ht'") as %->. iModIntro. eauto.
 Qed.
