@@ -218,8 +218,8 @@ Proof.
   subst. unfold stacklib_spec.
   iExists (stack_val N stack_val_impl). repeat iSplit.
   iApply create_correct; eauto.
-  iIntros (? ? ?); iApply push_correct; eauto.
-  iIntros (? ?); iApply pop_correct; eauto.
+  iApply push_correct; eauto.
+  iApply pop_correct; eauto.
 Qed.
 
 End Wrap.
