@@ -19,3 +19,4 @@ Makefile.coq
 Makefile.coq.conf
 *.crashcoqide
 .env
+html
