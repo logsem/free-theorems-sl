@@ -134,9 +134,7 @@ Definition stack_val (l: list val) (v: val) : iProp Σ :=
 
 Lemma create_correct P0 :
   create_spec P0 stack_impl create_impl -∗
-  {{{ P0 ∗ trace_is [] ∗ trace_inv N good_stack_trace }}}
-    create #()
-  {{{ s, RET s; stack_val [] s }}}.
+  create_spec (P0 ∗ trace_is [] ∗ trace_inv N good_stack_trace) stack_val create.
 Proof.
   iIntros "#create_impl_spec". iModIntro.
   iIntros (φ) "(H0 & Htr & HI) Hφ". unfold create.
@@ -147,13 +145,11 @@ Proof.
   by apply Forall_nil.
 Qed.
 
-Lemma push_correct s x l :
+Lemma push_correct :
   push_spec stack_impl push_impl -∗
-  {{{ stack_val l s }}}
-    push s x
-  {{{ RET #(); stack_val (x :: l) s }}}.
+  push_spec stack_val push.
 Proof.
-  iIntros "#push_impl_spec". iModIntro.
+  iIntros "#push_impl_spec" (l s x) "!>".
   iIntros (φ) "Hs Hφ". unfold push.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & Hgood & HF)".
   iDestruct "Hgood" as %Hgood. iDestruct "HF" as %HF.
@@ -171,17 +167,11 @@ Proof.
     intros v [i Hti]. exists i. by apply lookup_app_l_Some. }
 Qed.
 
-Lemma pop_correct s l :
+Lemma pop_correct :
   pop_spec stack_impl pop_impl -∗
-  {{{ stack_val l s }}}
-    pop s
-  {{{ v, RET v;
-      match l with
-      | [] => ⌜ v = #() ⌝ ∗ stack_val [] s
-      | x :: l' => ⌜ v = x ⌝ ∗ stack_val l' s
-      end }}}.
+  pop_spec stack_val pop.
 Proof.
-  iIntros "#pop_impl_spec". iModIntro.
+  iIntros "#pop_impl_spec" (l s) "!>".
   iIntros (φ) "Hs Hφ". unfold pop.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & Hgood & HF)".
   iDestruct "Hgood" as %Hgood. iDestruct "HF" as %HF.
