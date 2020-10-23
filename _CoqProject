@@ -16,4 +16,5 @@ theories/heap_lang/proofmode.v
 theories/heap_lang/adequacy.v
 
 theories/stack.v
+theories/traversable_stack.v
 theories/stack_impl.v

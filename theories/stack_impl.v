@@ -5,7 +5,7 @@ From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
 Set Default Proof Using "Type".
 
-From intensional Require Import stack.
+From intensional Require stack traversable_stack.
 
 Module Stack_impl.
 Section S.
@@ -31,6 +31,20 @@ Definition pop : val :=
       "s" <- "t" ;;
       "x"
     end.
+
+Definition foreach : val :=
+  λ: "s" "f",
+    let: "loop" := rec: "loop" "l" :=
+      match: "l" with
+        NONE => #()
+      | SOME "c" =>
+        let: "x" := Fst !"c" in
+        let: "t" := Snd !"c" in
+        "f" "x" ;;
+        "loop" "t"
+      end
+    in
+    "loop" (!"s").
 
 Fixpoint list_val (l: list val) (v: val) : iProp Σ :=
   match l with
@@ -91,13 +105,62 @@ Proof.
     unfold stack_val. iExists _, _. by iFrame. }
 Qed.
 
-Lemma correct : ⊢ stacklib_spec True (create, push, pop).
+Lemma foreach_correct s l (f: val) (I: list val → iProp Σ) :
+  {{{ (∀ p x,
+        ⌜(p ++ [x]) `prefix_of` l⌝ →
+        {{{ I p }}} f x {{{ RET #(); I (p ++ [x]) }}}) ∗
+      stack_val l s ∗ I [] }}}
+    foreach s f
+  {{{ RET #(); stack_val l s ∗ I l }}}.
 Proof.
-  iIntros "". unfold stacklib_spec.
+  set p := {3} []. assert (Hp: p `prefix_of` l) by apply prefix_nil.
+  iIntros (φ) "(#Hf & Hs & HI) Hφ". rewrite /foreach. wp_pures.
+  iDestruct "Hs" as (ℓ lv) "(-> & Hℓ & Hlv)".
+  wp_bind (! #ℓ)%E. wp_load.
+  set k := {2} l. assert (Hk: p ++ k = l) by eauto.
+  set lk := {2 3} lv.
+  iAssert (list_val k lk -∗ list_val l lv)%I with "[]" as "-#Hclose".
+  { subst k lk. eauto. }
+  clearbody k p lk. iRename "Hlv" into "Hlk".
+  iLöb as "IH" forall (p k lk Hp Hk) "HI Hlk Hclose".
+  wp_rec.
+  destruct k as [| x k].
+  { cbn. iDestruct "Hlk" as "->". wp_match. iApply "Hφ".
+    rewrite app_nil_r in Hk. subst p.
+    iFrame. rewrite {2}/stack_val. iExists _, _. iFrame.
+    iSplit; eauto. iApply "Hclose"; eauto. }
+  { cbn. iDestruct "Hlk" as (ℓ' t) "(-> & Hℓ' & Ht)". wp_match.
+    wp_bind (! #ℓ')%E. wp_load. wp_pures.
+    wp_bind (! #ℓ')%E. wp_load. wp_pures.
+    wp_bind (f x).
+    assert ((p ++ [x]) `prefix_of` l) as Hp'.
+    { eexists. rewrite -Hk -app_assoc //. }
+    iApply ("Hf" $! _ _ Hp' with "HI").
+    iIntros "!> HI". wp_seq.
+    iApply ("IH" with "[] [Hf] Hℓ Hφ HI Ht").
+    { iPureIntro. unfold prefix. exists k. subst l. rewrite -app_assoc //. }
+    { iPureIntro. rewrite -app_assoc //=. }
+    { iIntros "Hk". iApply "Hclose". iExists _, _. iFrame. eauto. } }
+Qed.
+
+
+Lemma correct : ⊢ stack.stacklib_spec True (create, push, pop).
+Proof.
+  iIntros "". unfold stack.stacklib_spec.
   iExists stack_val. repeat iSplit.
   iIntros (?); iApply create_correct.
   iIntros (? ? ? ?); iApply push_correct.
   iIntros (? ? ?); iApply pop_correct.
+Qed.
+
+Lemma traversable_correct : ⊢ traversable_stack.stacklib_spec True (create, push, pop, foreach).
+Proof.
+  iIntros "". unfold traversable_stack.stacklib_spec.
+  iExists stack_val. repeat iSplit.
+  iIntros (?); iApply create_correct.
+  iIntros (? ? ? ?); iApply push_correct.
+  iIntros (? ? ?); iApply pop_correct.
+  iIntros (? ? ? ? ?); iApply foreach_correct.
 Qed.
 
 End S.
