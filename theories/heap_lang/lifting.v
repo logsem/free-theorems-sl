@@ -173,6 +173,15 @@ Proof.
   iPureIntro. eapply gmap_of_trace_hist_valid_prefix; eauto.
 Qed.
 
+Lemma trace_is_inv `{traceG Σ, invG Σ} t N I :
+  trace_is t -∗ trace_inv N I ={⊤}=∗ trace_is t ∗ ⌜ I t ⌝.
+Proof.
+  iIntros "Ht Hi". unfold trace_inv.
+  iInv N as ">H" "Hclose". iDestruct "H" as (t') "(Ht' & %)".
+  iDestruct (trace_half_frag_agree with "[$] [$]") as %->.
+  iMod ("Hclose" with "[Ht']"). eauto. iIntros "!>". eauto.
+Qed.
+
 Lemma gmap_of_trace_valid {A} (l: list A) (n: nat):
   ✓ gmap_of_trace n l.
 Proof.

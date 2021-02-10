@@ -15,6 +15,10 @@ theories/heap_lang/array.v
 theories/heap_lang/proofmode.v
 theories/heap_lang/adequacy.v
 
+theories/stdpp_extra.v
+theories/tactics.v
 theories/stack.v
 theories/traversable_stack.v
 theories/stack_impl.v
+theories/file.v
+theories/iterator.v

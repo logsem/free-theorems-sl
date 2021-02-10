@@ -3,6 +3,7 @@ From iris.algebra Require Import auth excl.
 From iris.base_logic.lib Require Import invariants.
 From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
+From intensional Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
@@ -51,60 +52,22 @@ Definition good_stack_trace (t: list event): Prop :=
     ∃ j, (j < i)%nat ∧ t !! j = Some ("push", v).
 
 Lemma good_stack_trace_nil : good_stack_trace [].
-Proof.
-  intros i v Hti. rewrite lookup_nil in Hti; congruence.
-Qed.
+Proof. unfold good_stack_trace; go. Qed.
 
 Lemma good_stack_trace_push t v :
   good_stack_trace t → good_stack_trace (t ++ [("push", v)]).
-Proof.
-  intros Ht i u [Hi|[_ Hi]]%lookup_app_Some Hv; cycle 1.
-  { set X := (i - length t)%nat in Hi. destruct X.
-    all: cbn in Hi; inversion Hi. }
-  specialize (Ht i u Hi) as [j [? ?]]; auto. exists j. split; eauto.
-  rewrite lookup_app_l //. eapply lookup_lt_Some; eauto.
-Qed.
-
-Lemma lookup_snoc_Some A (l: list A) (x y: A) (i: nat) :
-  (l ++ [x]) !! i = Some y ↔
-  l !! i = Some y ∨
-  (i = length l ∧ y = x).
-Proof.
-  rewrite lookup_app_Some. split; intros [H|[H1 H2]]; eauto.
-  { destruct (decide (i - length l = 0)%nat) as [e|].
-    { rewrite e /= in H2. inversion H2; subst; eauto. right.
-      split; auto. assert (i ≤ length l)%nat by lia. lia. }
-    rewrite lookup_cons_ne_0 // in H2. }
-  { subst. right. split; eauto. rewrite Nat.sub_diag //=. }
-Qed.
+Proof. unfold good_stack_trace. go*. Qed.
 
 Lemma good_stack_trace_pop_nil t :
   good_stack_trace t →
   good_stack_trace (t ++ [("pop", #())]).
-Proof.
-  intros Hgood i v Hti Hv.
-  apply lookup_snoc_Some in Hti as [Hti | [_ ?]].
-  { specialize (Hgood _ _ Hti Hv) as [j [? ?]]. exists j; split; eauto.
-    rewrite lookup_app_l //. apply lookup_lt_is_Some_1; eauto. }
-  { congruence. }
-Qed.
+Proof. unfold good_stack_trace. go*. Qed.
 
 Lemma good_stack_trace_pop t v i :
   good_stack_trace t →
   t !! i = Some ("push", v) →
   good_stack_trace (t ++ [("pop", v)]).
-Proof.
-  intros Hgood Hti j v' Htj Hv'.
-  apply lookup_snoc_Some in Htj as [Htj|[-> Hvv']].
-  { specialize (Hgood _ _ Htj Hv') as [k [? ?]].
-    exists k. split; eauto. rewrite lookup_app_l //.
-    apply lookup_lt_is_Some_1; eauto. }
-  { inversion Hvv'; subst.
-    assert (i < length t)%nat by (apply lookup_lt_is_Some_1; eauto).
-    exists i. split.
-    - eapply (Nat.lt_le_trans _ (length t)%nat); eauto. (* lia. ??? *)
-    - rewrite lookup_app_l //. }
-Qed.
+Proof. unfold good_stack_trace. go*. Qed.
 
 End Trace.
 
@@ -129,8 +92,7 @@ Definition create : val :=
 
 Definition stack_val (l: list val) (v: val) : iProp Σ :=
   stack_impl l v ∗ trace_inv N good_stack_trace ∗
-  ∃ t, trace_is t ∗ ⌜good_stack_trace t⌝ ∗
-  ⌜ Forall (λ x, ∃ i, t !! i = Some ("push", x)) l ⌝.
+  ∃ t, trace_is t ∗ ⌜ Forall (λ x, ∃ i, t !! i = Some ("push", x)) l ⌝.
 
 Lemma create_correct P0 :
   create_spec P0 stack_impl create_impl -∗
@@ -140,9 +102,7 @@ Proof.
   iIntros (φ) "(H0 & Htr & HI) Hφ". unfold create.
   iApply ("create_impl_spec" with "[$]").
   iIntros "!>" (?) "?". iApply "Hφ". rewrite /stack_val.
-  iFrame. iExists []. iFrame. iPureIntro; split.
-  by apply good_stack_trace_nil.
-  by apply Forall_nil.
+  iFrame. iExists []. iFrame. iPureIntro. by apply Forall_nil.
 Qed.
 
 Lemma push_correct :
@@ -151,20 +111,16 @@ Lemma push_correct :
 Proof.
   iIntros "#push_impl_spec" (l s x) "!>".
   iIntros (φ) "Hs Hφ". unfold push.
-  iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & Hgood & HF)".
-  iDestruct "Hgood" as %Hgood. iDestruct "HF" as %HF.
+  iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & %)".
   wp_pures. wp_bind (push_impl _ _).
-  iApply ("push_impl_spec" with "Hs"). iIntros "!> Hs".
-  wp_pures.
-  eapply good_stack_trace_push in Hgood.
-  iApply (wp_emit with "[$Ht $HI]"); eauto.
+  iApply ("push_impl_spec" with "Hs"). iIntros "!> Hs". wp_pures.
+  iMod (trace_is_inv with "[$] HI") as "(Ht & %)".
+  iApply (wp_emit with "[$Ht $HI]"); eauto. by apply good_stack_trace_push.
   iIntros "!> Ht". iApply "Hφ".
   rewrite /stack_val; iFrame "HI∗".
-  iExists _; iFrame. iPureIntro; split; eauto.
-  rewrite Forall_cons. split.
-  { exists (length t). by apply list_lookup_middle. }
-  { eapply Forall_impl; [ apply HF |]. cbn.
-    intros v [i Hti]. exists i. by apply lookup_app_l_Some. }
+  iExists _; iFrame. iPureIntro. rewrite Forall_cons. split.
+  { eexists. go. }
+  { eapply Forall_impl. eassumption. cbn. go; eexists; go. }
 Qed.
 
 Lemma pop_correct :
@@ -173,31 +129,26 @@ Lemma pop_correct :
 Proof.
   iIntros "#pop_impl_spec" (l s) "!>".
   iIntros (φ) "Hs Hφ". unfold pop.
-  iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & Hgood & HF)".
-  iDestruct "Hgood" as %Hgood. iDestruct "HF" as %HF.
-  wp_pures. wp_bind (pop_impl _).
+  iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Ht & HF)".
+  iDestruct "HF" as %HF. wp_pures. wp_bind (pop_impl _).
   iApply ("pop_impl_spec" with "Hs"). iIntros "!>" (v) "Hs".
+  iMod (trace_is_inv with "[$] HI") as "(Ht & %)".
   wp_pures. wp_bind (Emit _ _).
   destruct l as [|x l'].
   { iDestruct "Hs" as "(-> & Hs)".
-    apply good_stack_trace_pop_nil in Hgood.
     iApply (wp_emit with "[$Ht $HI]"); eauto.
+    by apply good_stack_trace_pop_nil.
     iIntros "!> Ht". wp_pures. iApply "Hφ". iSplitR; first done.
     rewrite /stack_val; iFrame "HI∗".
-    iExists _. iFrame. iPureIntro; split; eauto. }
+    iExists _. iFrame. iPureIntro; eauto. }
   { iDestruct "Hs" as "(-> & Hs)".
     apply Forall_cons in HF as [[i Hti] HF].
-    eapply good_stack_trace_pop in Hgood; eauto.
     iApply (wp_emit with "[$Ht $HI]"); eauto.
+    by eapply good_stack_trace_pop.
     iIntros "!> Ht". wp_pures. iApply "Hφ". iSplitR; first done.
     rewrite /stack_val; iFrame "HI∗".
-    iExists _. iFrame. iPureIntro; split; eauto.
-    eapply Forall_impl; [ apply HF |]. cbn.
-    intros v [j Htj].
-    destruct (decide (i = j)) as [<-|].
-    { rewrite Htj in Hti. inversion Hti; subst.
-      exists i. rewrite lookup_app_l //. apply lookup_lt_is_Some_1; eauto. }
-    { exists j. rewrite lookup_app_l //. apply lookup_lt_is_Some_1; eauto. } }
+    iExists _. iFrame. iPureIntro; eauto.
+    eapply Forall_impl; [ apply HF |]. cbn. go; eexists; go. }
 Qed.
 
 End S.
