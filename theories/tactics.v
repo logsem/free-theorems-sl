@@ -24,12 +24,12 @@ Ltac clear_learnt :=
   | H : Learnt _ |- _ => clear H
   end.
 
-Ltac eassumpp :=
-  lazymatch goal with
-  | |- _ ∨ _ => first [ left; eassumpp | right; eassumpp ]
-  | |- _ ∧ _ => split; eassumpp
-  | |- _ => eassumption
-  end.
+Create HintDb eassumpp.
+Hint Resolve or_introl : eassumpp.
+Hint Resolve or_intror : eassumpp.
+Hint Resolve conj : eassumpp.
+Hint Resolve Z.lt_le_incl : eassumpp.
+Ltac eassumpp := typeclasses eauto with eassumpp.
 
 Ltac go_step :=
   progress repeat match goal with
@@ -40,6 +40,17 @@ Ltac go_step :=
 
   | |- context [ length (_ ++ _) ] => rewrite app_length
   | H : context [ length (_ ++ _) ] |- _ => rewrite -> app_length in H
+
+  | H1 : ?t `prefix_of` _, H2 : ?t !! _ = Some _ |- _ =>
+    learn (prefix_lookup _ _ _ _ H2 H1)
+
+  | H: (_, _) = (_, _) |- _ => simplify_eq
+
+  (* these are useful to be picked up by [eassumpp] when instantiating lemmas *)
+  | H1: Z.lt ?a ?b, H2: Z.lt ?b ?c |- _ => learn (Z.lt_trans _ _ _ H1 H2)
+  | H1: Z.le ?a ?b, H2: Z.lt ?b ?c |- _ => learn (Z.le_lt_trans _ _ _ H1 H2)
+  | H1: Z.lt ?a ?b, H2: Z.le ?b ?c |- _ => learn (Z.lt_le_trans _ _ _ H1 H2)
+  | H1: Z.le ?a ?b, H2: Z.le ?b ?c |- _ => learn (Z.le_trans _ _ _ H1 H2)
 
   | |- ¬ _ => intro
   | H : ∃ _, _ |- _ => destruct H
@@ -58,6 +69,7 @@ Ltac go_step :=
 Ltac go :=
   repeat first [
      progress intros
+    | progress cbn
     | eassumption
     | destruct_and!
     | go_step
