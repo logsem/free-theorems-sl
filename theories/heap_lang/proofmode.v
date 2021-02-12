@@ -1,7 +1,7 @@
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic.
-From intensional Require Export tactics lifting.
+From intensional.heap_lang Require Export tactics lifting.
 From intensional Require Import notation.
 From iris Require Import options.
 Import uPred.

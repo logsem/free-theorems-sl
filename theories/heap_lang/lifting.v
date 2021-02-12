@@ -6,8 +6,8 @@ From iris.base_logic Require Export gen_heap.
 From iris.base_logic.lib Require Export proph_map invariants.
 From iris.program_logic Require Export weakestpre total_weakestpre.
 From iris.program_logic Require Import ectx_lifting total_ectx_lifting.
-From intensional Require Export lang.
-From intensional Require Import tactics notation.
+From intensional.heap_lang Require Export lang.
+From intensional.heap_lang Require Import tactics notation.
 Set Default Proof Using "Type".
 
 Fixpoint gmap_of_trace {A} (n: nat) (l: list A): gmap nat (agree (leibnizO A)) :=
@@ -63,13 +63,13 @@ Class heapG Σ := HeapG {
 }.
 
 Definition trace_auth `{hT: traceG Σ} (t: list event) :=
-  (own trace_name (●F (to_agree (t: traceO))) ∗ own trace_hist_name (● gmap_of_trace 0 t))%I.
+  (own trace_name (●F (to_agree (t: traceO))))%I.
 Definition hist `{hT: traceG Σ} (t: list event) :=
   own trace_hist_name (◯ (gmap_of_trace 0 t)).
 Definition trace_half_frag `{hT:traceG} (t: list event) :=
   own trace_name (◯F{1/2} (to_agree (t: traceO))).
 Definition trace_is `{hT: traceG Σ} (t: list event) :=
-  (trace_half_frag t ∗ hist t)%I.
+  (trace_half_frag t ∗ own trace_hist_name (● gmap_of_trace 0 t) ∗ hist t)%I.
 
 Definition trace_inv `{hT:traceG Σ, hI:invG Σ} (ι: namespace) (I: list event → Prop) :=
   inv ι (∃ t, trace_half_frag t ∗ ⌜I t⌝).
@@ -79,15 +79,14 @@ Instance hist_persistent `{traceG Σ} (t: list event): Persistent (hist t) := _.
 Lemma alloc_hist `{traceG Σ} t :
   trace_is t -∗ trace_is t ∗ hist t.
 Proof.
-  rewrite /trace_is /hist. iIntros "[Htt #Hth]".
-  iFrame. iSplit; iAssumption.
+  rewrite /trace_is /hist. iIntros "(? & ? & #H)". iFrame "H ∗".
 Qed.
 
 Lemma trace_auth_half_frag_agree `{traceG Σ} t t':
   trace_auth t -∗ trace_half_frag t' -∗ ⌜t = t'⌝.
 Proof.
   rewrite /trace_auth /trace_is.
-  iIntros "[H1 _] H2".
+  iIntros "H1 H2".
   iDestruct (own_valid_2 with "H1 H2") as "H".
   iDestruct "H" as %Hi%frac_auth_included.
   rewrite -> Some_included_total in Hi.
@@ -97,14 +96,14 @@ Qed.
 Lemma trace_agree `{traceG Σ} t t':
   trace_auth t -∗ trace_is t' -∗ ⌜t = t'⌝.
 Proof.
-  iIntros "H1 [H2 _]". iApply (trace_auth_half_frag_agree with "H1 H2").
+  iIntros "H1 (H2 & _ & _)". iApply (trace_auth_half_frag_agree with "H1 H2").
 Qed.
 
 Lemma trace_half_frag_agree `{traceG Σ} t t':
   trace_half_frag t -∗ trace_is t' -∗ ⌜t = t'⌝.
 Proof.
   rewrite /trace_is /trace_half_frag.
-  iIntros "H1 [H2 _]".
+  iIntros "H1 (H2 & _ & _)".
   iDestruct (own_valid_2 with "H1 H2") as "H".
   rewrite -frac_auth_frag_op Qp_half_half.
   iDestruct "H" as %Hv. rewrite frac_auth_frag_valid in Hv |- * => Hv.
@@ -116,13 +115,13 @@ Lemma trace_add_event `{traceG Σ} t (e: event) :
   trace_auth (t ++ [e]) ∗ trace_is (t ++ [e]) ∗ trace_half_frag (t ++ [e]).
 Proof.
   rewrite /trace_auth /trace_is /hist.
-  iIntros "[H1 H1h] [H2 H2h] H3".
+  iIntros "H1 (H2 & H2ha & H2h) H3".
   iDestruct (own_op with "[$H2 $H3]") as "H2".
   rewrite -frac_auth_frag_op Qp_half_half agree_idemp.
   iMod (own_update_2 _ _ _ (●F (to_agree (t++[e]:traceO)) ⋅ ◯F (to_agree (t++[e]:traceO))) with "H1 H2") as "[? ?]".
   by apply frac_auth_update_1.
   rewrite gmap_of_trace_snoc Nat.add_0_l.
-  iMod (own_update_2 with "H1h H2h") as "[? ?]".
+  iMod (own_update_2 with "H2ha H2h") as "[? ?]".
   apply auth_update.
   eapply (alloc_local_update _ _ (length t : nat) (to_agree (e:eventO))); [|done].
   { eapply not_elem_of_dom. intros ?%gmap_of_trace_dom. lia. }
@@ -164,11 +163,11 @@ Proof.
   Unshelve. all: typeclasses eauto.
 Qed.
 
-Lemma hist_trace_auth_prefix `{traceG Σ} t h :
-  trace_auth t -∗ hist h -∗ ⌜ h `prefix_of` t ⌝.
+Lemma hist_trace_is_prefix `{traceG Σ} t h :
+  trace_is t -∗ hist h -∗ ⌜ h `prefix_of` t ⌝.
 Proof.
-  rewrite /trace_auth /hist. iIntros "[_ H1] H2".
-  iDestruct (own_op with "[$H1 $H2]") as "H".
+  rewrite /trace_is /hist. iIntros "(H1 & H2 & H3) H4".
+  iDestruct (own_op with "[$H2 $H4]") as "H".
   iDestruct (own_valid with "H") as %[Hsub Hv]%auth_both_valid.
   iPureIntro. eapply gmap_of_trace_hist_valid_prefix; eauto.
 Qed.
