@@ -81,11 +81,7 @@ Lemma iterator_trace_next t t' (n0 k: nat) x :
      n0 ≤ k → t !! k = Some (lbl, #()) → lbl ≠ "add" ∧ lbl ≠ "remove") →
   iterator_trace t →
   iterator_trace (t ++ [("next", x)]).
-Proof.
-  intros ? ? ? Har Ht ? ? ?. go.
-  { unfold iterator_trace in Ht. clear Har. go*. }
-  { eexists. repeat split. all: go. go. }
-Qed.
+Proof. unfold iterator_trace. go*. Qed.
 
 End Trace.
 

@@ -44,8 +44,6 @@ Ltac go_step :=
   | H1 : ?t `prefix_of` _, H2 : ?t !! _ = Some _ |- _ =>
     learn (prefix_lookup _ _ _ _ H2 H1)
 
-  | H: (_, _) = (_, _) |- _ => simplify_eq
-
   (* these are useful to be picked up by [eassumpp] when instantiating lemmas *)
   | H1: Z.lt ?a ?b, H2: Z.lt ?b ?c |- _ => learn (Z.lt_trans _ _ _ H1 H2)
   | H1: Z.le ?a ?b, H2: Z.lt ?b ?c |- _ => learn (Z.le_lt_trans _ _ _ H1 H2)
@@ -71,10 +69,11 @@ Ltac go :=
      progress intros
     | progress cbn
     | eassumption
+    | progress simplify_eq/=
     | destruct_and!
     | go_step
     | destruct_or!
-    | naive_solver
+    | solve [ eauto ]
     | clear_learnt; unfold event in *; lia ].
 
 Ltac go_trysolve_step :=
@@ -84,7 +83,8 @@ Ltac go_trysolve_step :=
   end.
 
 Tactic Notation "go*" :=
-  solve [ repeat (go; repeat go_trysolve_step) ].
+  (* the [repeat repeat] is a hack; need: truly multigoal repeat *)
+  solve [ repeat (repeat (go; repeat go_trysolve_step)) ].
 
 Goal forall A B (f : A → B) (a: A), True. intros. Fail go_step. Abort.
 Goal forall A B (f : ∀ (x: A), B x), True. intros. Fail go_step. Abort.
