@@ -30,7 +30,6 @@ Definition filelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
 Instance filelib_persistent `{!heapG Σ} P0 lib : Persistent (filelib_spec P0 lib).
 Proof.
   repeat (apply bi.exist_persistent; intro).
-  apply bi.sep_persistent; try typeclasses eauto.
   repeat case_match; typeclasses eauto.
 Qed.
 
