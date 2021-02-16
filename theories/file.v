@@ -27,12 +27,6 @@ Definition filelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
   | _ => False
   end.
 
-Instance filelib_persistent `{!heapG Σ} P0 lib : Persistent (filelib_spec P0 lib).
-Proof.
-  repeat (apply bi.exist_persistent; intro).
-  repeat case_match; typeclasses eauto.
-Qed.
-
 Section Trace.
 
 Definition noclose (t: list event) (m n: nat) :=
@@ -184,7 +178,7 @@ Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
   filelib_spec P0 lib_impl -∗
   filelib_spec (P0 ∗ trace_is [] ∗ trace_inv N file_trace) (lib lib_impl).
 Proof.
-  iIntros "#S". iDestruct "S" as (isOpen_impl isClosed_impl) "(#H0 & S)".
+  iIntros "S". iDestruct "S" as (isOpen_impl isClosed_impl) "(#H0 & S)".
   repeat case_match; eauto. iDestruct "S" as "(Ho & Hc & Hr)".
   subst. unfold filelib_spec.
   iExists (isOpen N isOpen_impl), (isClosed N isClosed_impl).

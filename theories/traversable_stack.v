@@ -47,13 +47,6 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
     | _ => False
     end.
 
-Instance stacklib_persistent `{!heapG Σ} P0 lib : Persistent (stacklib_spec P0 lib).
-Proof.
-  apply bi.exist_persistent. intro.
-  repeat case_match; typeclasses eauto.
-Qed.
-
-
 Section Trace.
 
 Definition traversal_trace (f: val) (l: list val): list event :=
@@ -264,7 +257,7 @@ Lemma correct `{!heapG Σ} N P0 (lib_impl: val):
   stacklib_spec P0 lib_impl -∗
   stacklib_spec (P0 ∗ trace_is [] ∗ trace_inv N good_trace) (lib lib_impl).
 Proof.
-  iIntros "#S". iDestruct "S" as (stack_val_impl) "S".
+  iIntros "S". iDestruct "S" as (stack_val_impl) "S".
   repeat case_match; eauto. iDestruct "S" as "(Hcreate & Hpush & Hpop & Hforeach)".
   subst. unfold stacklib_spec.
   iExists (stack_val N stack_val_impl). repeat iSplit.

@@ -35,12 +35,6 @@ Definition iterlib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
   | _ => False
   end.
 
-Instance iterlib_persistent `{!heapG Σ} P0 lib : Persistent (iterlib_spec P0 lib).
-Proof.
-  apply bi.exist_persistent. intro.
-  repeat case_match; try typeclasses eauto.
-Qed.
-
 Section Trace.
 
 Definition iterator_trace t :=
@@ -221,7 +215,7 @@ Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
   iterlib_spec P0 lib_impl -∗
   iterlib_spec (P0 ∗ trace_is [] ∗ trace_inv N iterator_trace) (lib lib_impl).
 Proof.
-  iIntros "#S". iDestruct "S" as (Coll_impl Iter_impl) "(#H0 & S)".
+  iIntros "S". iDestruct "S" as (Coll_impl Iter_impl) "(#H0 & S)".
   repeat case_match; eauto. iDestruct "S" as "(? & ? & ? & ? & ?)".
   subst. unfold iterlib_spec.
   iExists (Coll N Coll_impl), (Iter Iter_impl). repeat iSplit.

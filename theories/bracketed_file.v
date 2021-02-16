@@ -28,12 +28,6 @@ Definition bfilelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
   | _ => False
   end.
 
-Instance bfilelib_persistent `{!heapG Σ} P0 lib : Persistent (bfilelib_spec P0 lib).
-Proof.
-  repeat (apply bi.exist_persistent; intros).
-  repeat case_match; typeclasses eauto.
-Qed.
-
 Section Trace.
 
 Inductive op_trace : list event → Prop :=
@@ -197,7 +191,7 @@ Lemma correct `{!heapG Σ} N P0 (lib_impl: val):
   bfilelib_spec P0 lib_impl -∗
   bfilelib_spec (P0 ∗ trace_is [] ∗ trace_inv N bfile_trace) (lib lib_impl).
 Proof.
-  iIntros "#S". iDestruct "S" as (locked_impl unlocked_impl) "(#H0 & S)".
+  iIntros "S". iDestruct "S" as (locked_impl unlocked_impl) "(#H0 & S)".
   repeat case_match; eauto. iDestruct "S" as "(? & ?)".
   unfold bfilelib_spec.
   iExists (locked N locked_impl), (unlocked N unlocked_impl). repeat iSplit.
