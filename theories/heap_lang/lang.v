@@ -67,7 +67,7 @@ behavior. So we erase to the poison value instead, making sure that no legal
 comparisons could be affected. *)
 Inductive base_lit : Set :=
   | LitInt (n : Z) | LitBool (b : bool) | LitUnit | LitPoison
-  | LitLoc (l : loc) | LitProphecy (p: proph_id).
+  | LitLoc (l : loc) | LitTag (s : string) | LitProphecy (p: proph_id).
 Inductive un_op : Set :=
   | NegOp | MinusUnOp.
 Inductive bin_op : Set :=
@@ -108,7 +108,8 @@ Inductive expr :=
   | NewProph
   | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)
   (* trace stuff *)
-  | Emit (tag : string) (e : expr)
+  | Emit (e1 : expr) (e2 : expr) (* tag, value *)
+  | Fresh (e : expr)
 with val :=
   | LitV (l : base_lit)
   | RecV (f x : binder) (e : expr)
@@ -248,6 +249,7 @@ Proof.
      | Resolve e0 e1 e2, Resolve e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | Emit s1 e1, Emit s2 e2 => cast_if_and (decide (s1 = s2)) (decide (e1 = e2))
+     | Fresh e1, Fresh e2 => cast_if (decide (e1 = e2))
      | _, _ => right _
      end
    with gov (v1 v2 : val) {struct v1} : Decision (v1 = v2) :=
@@ -269,19 +271,21 @@ Proof. solve_decision. Defined.
 Instance base_lit_countable : Countable base_lit.
 Proof.
  refine (inj_countable' (λ l, match l with
-  | LitInt n => (inl (inl n), None)
-  | LitBool b => (inl (inr b), None)
-  | LitUnit => (inr (inl false), None)
-  | LitPoison => (inr (inl true), None)
-  | LitLoc l => (inr (inr l), None)
-  | LitProphecy p => (inr (inl false), Some p)
+  | LitInt n => inl (inl (inl n), None)
+  | LitBool b => inl (inl (inr b), None)
+  | LitUnit => inl (inr (inl false), None)
+  | LitPoison => inl (inr (inl true), None)
+  | LitLoc l => inl (inr (inr l), None)
+  | LitTag s => inr s
+  | LitProphecy p => inl (inr (inl false), Some p)
   end) (λ l, match l with
-  | (inl (inl n), None) => LitInt n
-  | (inl (inr b), None) => LitBool b
-  | (inr (inl false), None) => LitUnit
-  | (inr (inl true), None) => LitPoison
-  | (inr (inr l), None) => LitLoc l
-  | (_, Some p) => LitProphecy p
+  | inl (inl (inl n), None) => LitInt n
+  | inl (inl (inr b), None) => LitBool b
+  | inl (inr (inl false), None) => LitUnit
+  | inl (inr (inl true), None) => LitPoison
+  | inl (inr (inr l), None) => LitLoc l
+  | inl (_, Some p) => LitProphecy p
+  | inr s => LitTag s
   end) _); by intros [].
 Qed.
 Instance un_op_finite : Countable un_op.
@@ -327,7 +331,8 @@ Proof.
      | FAA e1 e2 => GenNode 17 [go e1; go e2]
      | NewProph => GenNode 18 []
      | Resolve e0 e1 e2 => GenNode 19 [go e0; go e1; go e2]
-     | Emit s e => GenNode 20 [GenLeaf (inl (inl s)); go e]
+     | Emit e1 e2 => GenNode 20 [go e1; go e2]
+     | Fresh e => GenNode 21 [go e]
     end
    with gov v :=
      match v with
@@ -363,7 +368,8 @@ Proof.
      | GenNode 17 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 18 [] => NewProph
      | GenNode 19 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2)
-     | GenNode 20 [GenLeaf (inl (inl s)); e] => Emit s (go e)
+     | GenNode 20 [e1; e2] => Emit (go e1) (go e2)
+     | GenNode 21 [e] => Fresh (go e)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
@@ -378,7 +384,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -423,7 +429,9 @@ Inductive ectx_item :=
   | ResolveLCtx (ctx : ectx_item) (v1 : val) (v2 : val)
   | ResolveMCtx (e0 : expr) (v2 : val)
   | ResolveRCtx (e0 : expr) (e1 : expr)
-  | EmitCtx (tag : string).
+  | EmitLCtx (v2 : val)
+  | EmitRCtx (e1 : expr)
+  | FreshCtx.
 
 (** Contextual closure will only reduce [e] in [Resolve e (Val _) (Val _)] if
 the local context of [e] is non-empty. As a consequence, the first argument of
@@ -460,7 +468,9 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | ResolveLCtx K v1 v2 => Resolve (fill_item K e) (Val v1) (Val v2)
   | ResolveMCtx ex v2 => Resolve ex e (Val v2)
   | ResolveRCtx ex e1 => Resolve ex e1 e
-  | EmitCtx tag => Emit tag e
+  | EmitLCtx v2 => Emit e (of_val v2)
+  | EmitRCtx e1 => Emit e1 e
+  | FreshCtx => Fresh e
   end.
 
 (** Substitution *)
@@ -488,7 +498,8 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
   | NewProph => NewProph
   | Resolve ex e1 e2 => Resolve (subst x v ex) (subst x v e1) (subst x v e2)
-  | Emit tag e => Emit tag (subst x v e)
+  | Emit e1 e2 => Emit (subst x v e1) (subst x v e2)
+  | Fresh e => Fresh (subst x v e)
   end.
 
 Definition subst' (mx : binder) (v : val) : expr → expr :=
@@ -616,6 +627,9 @@ Proof.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
+Definition fresh_tag (tag: string) (t: list event) :=
+  ∀ v, (tag, v) ∉ t.
+
 Inductive head_step : expr → state → list observation → expr → state → list expr → Prop :=
   | RecS f x e σ :
      head_step (Rec f x e) σ [] (Val $ RecV f x e) σ []
@@ -690,8 +704,13 @@ Inductive head_step : expr → state → list observation → expr → state →
      head_step (Resolve e (Val $ LitV $ LitProphecy p) (Val w)) σ
                (κs ++ [(p, (v, w))]) (Val v) σ' ts
   | EmitS tag v σ :
-     head_step (Emit tag (Val v)) σ [] (Val $ LitV LitUnit)
-               (state_add_event (tag, v) σ) [].
+     head_step (Emit (Val $ LitV (LitTag tag)) (Val v)) σ [] (Val $ LitV LitUnit)
+               (state_add_event (tag, v) σ) []
+
+  | FreshS v σ tag :
+    fresh_tag tag σ.(trace) →
+    head_step (Fresh (Val v)) σ [] (Val $ LitV (LitTag tag))
+              (state_add_event (tag, v) σ) [].
 
 (** Basic properties about the language *)
 Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).

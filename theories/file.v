@@ -117,13 +117,13 @@ Context (isOpen_impl isClosed_impl : iProp Σ).
 Context (open_impl close_impl read_impl : val).
 
 Definition open : val :=
-  λ: "_", open_impl #() ;; Emit "open" #().
+  λ: "_", open_impl #() ;; Emit #"open" #().
 
 Definition close : val :=
-  λ: "_", close_impl #() ;; Emit "close" #().
+  λ: "_", close_impl #() ;; Emit #"close" #().
 
 Definition read : val :=
-  λ: "_", read_impl #() ;; Emit "read" #().
+  λ: "_", read_impl #() ;; Emit #"read" #().
 
 Definition isOpen : iProp Σ :=
   isOpen_impl ∗ trace_inv N file_trace ∗

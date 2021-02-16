@@ -1,8 +1,8 @@
 From stdpp Require Import fin_maps.
 From iris.bi Require Import lib.fractional.
 From iris.proofmode Require Import tactics.
-From intensional Require Export lifting.
-From intensional Require Import tactics notation.
+From intensional.heap_lang Require Export lifting.
+From intensional.heap_lang Require Import tactics notation.
 Set Default Proof Using "Type".
 
 (** This file defines the [array] connective, a version of [mapsto] that works

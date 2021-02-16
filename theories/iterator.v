@@ -96,19 +96,19 @@ Context (Coll_impl: val → iProp Σ) (Iter_impl: val → val → iProp Σ).
 Context (size_impl add_impl remove_impl iterator_impl next_impl: val).
 
 Definition size : val :=
-  λ: "_", let: "r" := size_impl #() in Emit "size" #() ;; "r".
+  λ: "_", let: "r" := size_impl #() in Emit #"size" #() ;; "r".
 
 Definition add : val :=
-  λ: "x", add_impl "x" ;; Emit "add" #().
+  λ: "x", add_impl "x" ;; Emit #"add" #().
 
 Definition remove : val :=
-  λ: "x", remove_impl "x" ;; Emit "remove" #().
+  λ: "x", remove_impl "x" ;; Emit #"remove" #().
 
 Definition iterator : val :=
-  λ: "_", let: "r" := iterator_impl #() in Emit "iterator" "r" ;; "r".
+  λ: "_", let: "r" := iterator_impl #() in Emit #"iterator" "r" ;; "r".
 
 Definition next : val :=
-  λ: "x", let: "r" := next_impl "x" in Emit "next" "x" ;; "r".
+  λ: "x", let: "r" := next_impl "x" in Emit #"next" "x" ;; "r".
 
 Definition Coll (x: val) : iProp Σ :=
   ∃ (y:val) (n: nat), ⌜x = (y, # n)%V⌝ ∗ Coll_impl y ∗

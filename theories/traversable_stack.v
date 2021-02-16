@@ -111,15 +111,15 @@ Context (push_impl pop_impl create_impl foreach_impl: val).
 
 Definition push : val :=
   λ: "s" "x",
-    Emit "call:push" "x" ;;
+    Emit #"call:push" "x" ;;
     push_impl "s" "x" ;;
-    Emit "ret:push" #().
+    Emit #"ret:push" #().
 
 Definition pop : val :=
   λ: "s",
-    Emit "call:pop" #() ;;
+    Emit #"call:pop" #() ;;
     let: "r" := pop_impl "s" in
-    Emit "ret:pop" "r" ;;
+    Emit #"ret:pop" "r" ;;
     "r".
 
 Definition create : val :=
@@ -127,13 +127,13 @@ Definition create : val :=
 
 Definition foreach : val :=
   λ: "s" "f",
-    Emit "call:foreach" "f" ;;
+    Emit #"call:foreach" "f" ;;
     foreach_impl "s" (λ: "x",
-      Emit "call:foreach_client" ("f", "x") ;;
+      Emit #"call:foreach_client" ("f", "x") ;;
       "f" "x" ;;
-      Emit "ret:foreach_client" "f"
+      Emit #"ret:foreach_client" "f"
     ) ;;
-    Emit "ret:foreach" #().
+    Emit #"ret:foreach" #().
 
 Definition stack_val (l: list val) (s: val): iProp Σ :=
   stack_impl l s ∗ trace_inv N good_trace ∗

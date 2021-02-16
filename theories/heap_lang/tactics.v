@@ -43,7 +43,9 @@ Ltac reshape_expr e tac :=
     | Resolve ?ex (Val ?v1) (Val ?v2) => go K ((v1,v2) :: vs) ex
     | Resolve ?ex ?e1 (Val ?v2)       => add_item (ResolveMCtx ex v2) vs K e1
     | Resolve ?ex ?e1 ?e2             => add_item (ResolveRCtx ex e1) vs K e2
-    | Emit ?tag ?e                    => add_item (EmitCtx tag) vs K e
+    | Emit (Val ?v) ?e2               => add_item (EmitLCtx v) vs K e2
+    | Emit ?e1 ?e2                    => add_item (EmitRCtx e1) vs K e2
+    | Fresh ?e                        => add_item FreshCtx vs K e
     end
   with add_item Ki vs K e :=
     lazymatch vs with

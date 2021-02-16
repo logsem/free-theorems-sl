@@ -293,7 +293,9 @@ Instance cmpxchg_atomic s v0 v1 v2 : Atomic s (CmpXchg (Val v0) (Val v1) (Val v2
 Proof. solve_atomic. Qed.
 Instance faa_atomic s v1 v2 : Atomic s (FAA (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
-Instance emit_atomic s tag v : Atomic s (Emit tag (Val v)).
+Instance emit_atomic s tag v : Atomic s (Emit (Val tag) (Val v)).
+Proof. solve_atomic. Qed.
+Instance fresh_atomic s v : Atomic s (Fresh (Val v)).
 Proof. solve_atomic. Qed.
 
 Instance new_proph_atomic s : Atomic s NewProph.
@@ -411,11 +413,11 @@ Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types l : loc.
 
-Lemma wp_emit s E tr tag v ι (I: list event → Prop) :
+Lemma wp_emit s E tr (tag: string) v ι (I: list event → Prop) :
   ↑ι ⊆ E →
   I (tr ++ [(tag, v)]) →
   {{{ trace_is tr ∗ trace_inv ι I }}}
-    Emit tag v @ s; E
+    Emit (#tag) v @ s; E
   {{{ RET (LitV LitUnit); trace_is (tr ++ [(tag, v)]) }}}.
 Proof.
   iIntros (Hι HI φ) "[Ht Hi] Hφ".
@@ -427,6 +429,38 @@ Proof.
   iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
   iDestruct (trace_agree with "Hta Ht") as %<-.
   iMod (trace_add_event with "Hta Ht Htr'") as "(Hta&Ht&Htr')".
+  iModIntro. iFrame. iSplitL; last done.
+  iMod ("Hclose" with "[Htr']"). { iNext. eauto. }
+  iModIntro. by iApply "Hφ".
+Qed.
+
+Lemma pick_fresh_tag (tr: list event) :
+  ∃ (tag: string), fresh_tag tag tr.
+Proof.
+  exists (fresh (tr.*1)).
+  unfold fresh_tag. intros ? H.
+  rewrite -(zip_fst_snd tr) in H. apply elem_of_zip_l in H.
+  rewrite fst_zip in H. 2: rewrite !map_length //.
+  by apply infinite_is_fresh in H.
+Qed.
+
+Lemma wp_fresh s E tr v ι (I: list event → Prop) :
+  ↑ι ⊆ E →
+  (∀ tag, fresh_tag tag tr → I (tr ++ [(tag, v)])) →
+  {{{ trace_is tr ∗ trace_inv ι I }}}
+    Fresh v @ s; E
+  {{{ (tag:string), RET (LitV tag); trace_is (tr ++ [(tag, v)]) }}}.
+Proof.
+  iIntros (Hι HI φ) "[Ht Hi] Hφ".
+  iInv "Hi" as ">Hi" "Hclose".
+  iDestruct "Hi" as (tr') "[Htr' _]".
+  iDestruct (trace_half_frag_agree with "Htr' Ht") as %->.
+  iApply wp_lift_atomic_head_step; [done|].
+  iIntros (σ1 κ κs n) "(? & Hta & ?) !>".
+  destruct (pick_fresh_tag σ1.(trace)) as [tag Htag]. iSplit; [ by eauto |].
+  iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
+  iDestruct (trace_agree with "Hta Ht") as %<-.
+  iMod (trace_add_event with "Hta Ht Htr'") as "(Hta & Ht & Htr')".
   iModIntro. iFrame. iSplitL; last done.
   iMod ("Hclose" with "[Htr']"). { iNext. eauto. }
   iModIntro. by iApply "Hφ".

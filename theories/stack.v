@@ -82,10 +82,10 @@ Context (stack_impl: list val → val → iProp Σ).
 Context (push_impl pop_impl create_impl : val).
 
 Definition push : val :=
-  λ: "s" "x", push_impl "s" "x" ;; Emit "push" "x".
+  λ: "s" "x", push_impl "s" "x" ;; Emit #"push" "x".
 
 Definition pop : val :=
-  λ: "s", let: "r" := pop_impl "s" in Emit "pop" "r" ;; "r".
+  λ: "s", let: "r" := pop_impl "s" in Emit #"pop" "r" ;; "r".
 
 Definition create : val :=
   create_impl.
