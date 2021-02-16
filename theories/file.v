@@ -5,7 +5,7 @@ From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
 From intensional Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
-Implicit Types t : list event.
+Implicit Types t : list val.
 
 Definition open_spec `{!heapG Σ} (isClosed isOpen: iProp Σ) (open: val): iProp Σ :=
   {{{ isClosed }}} open #() {{{ RET #(); isOpen }}}.
@@ -29,24 +29,24 @@ Definition filelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
 
 Section Trace.
 
-Definition noclose (t: list event) (m n: nat) :=
-  ∀ (k:nat) v, m < k < n → t !! k ≠ Some ("close", v).
+Definition noclose (t: list val) (m n: nat) :=
+  ∀ (k:nat) v, m < k < n → t !! k ≠ Some (#"close", v)%V.
 
-Definition isopen (t: list event) (n: nat) :=
-  ∃ (m:nat), m < n ∧ t !! m = Some ("open", #()) ∧ noclose t m n.
+Definition isopen (t: list val) (n: nat) :=
+  ∃ (m:nat), m < n ∧ t !! m = Some (#"open", #())%V ∧ noclose t m n.
 
-Definition file_trace (t: list event) :=
-  ∀ (n:nat), t !! n = Some ("read", #()) ∨ t !! n = Some ("close", #()) →
+Definition file_trace (t: list val) :=
+  ∀ (n:nat), t !! n = Some (#"read", #())%V ∨ t !! n = Some (#"close", #())%V →
              isopen t n.
 
 Lemma noclose_open t n m :
   noclose t n m →
-  noclose (t ++ [("open", #())]) n m.
+  noclose (t ++ [(#"open", #())%V]) n m.
 Proof. unfold noclose. go. Qed.
 
 Lemma isopen_open t n :
   isopen t n →
-  isopen (t ++ [("open", #())]) n.
+  isopen (t ++ [(#"open", #())%V]) n.
 Proof. unfold isopen, noclose. go*. Qed.
 
 Lemma isopen_open' t n e :
@@ -57,28 +57,28 @@ Proof. unfold isopen, noclose. go*. Qed.
 
 Lemma file_trace_open t :
   file_trace t →
-  file_trace (t ++ [("open", #())]).
+  file_trace (t ++ [(#"open", #())%V]).
 Proof. unfold file_trace. intros. apply isopen_open. go. Qed.
 
 Lemma noclose_open_last t :
-  noclose (t ++ [("open", #())]) (length t) (length t + 1).
+  noclose (t ++ [(#"open", #())%V]) (length t) (length t + 1).
 Proof. unfold noclose. go. Qed.
 
 Lemma noclose_read_last t v m :
   noclose t m (length t) →
-  noclose (t ++ [("read", v)]) m (length t + 1).
+  noclose (t ++ [(#"read", v)%V]) m (length t + 1).
 Proof.
   unfold noclose. intros HH k v' ?. go.
   specialize (HH k v' ltac:(go)); go.
 Qed.
 
 Lemma isopen_open_last t :
-  isopen (t ++ [("open", #())]) (length t + 1).
+  isopen (t ++ [(#"open", #())%V]) (length t + 1).
 Proof. exists (length t). unfold noclose; go*. Qed.
 
 Lemma isopen_read_last t v :
   isopen t (length t) →
-  isopen (t ++ [("read", v)]) (length t + 1).
+  isopen (t ++ [(#"read", v)%V]) (length t + 1).
 Proof.
   intros [m ?]. go. exists m. split_and!; go. by apply noclose_read_last.
 Qed.
@@ -86,13 +86,13 @@ Qed.
 Lemma file_trace_close t :
   isopen t (length t) →
   file_trace t →
-  file_trace (t ++ [("close", #())]).
+  file_trace (t ++ [(#"close", #())%V]).
 Proof. unfold file_trace. intros. go; apply isopen_open'; go. Qed.
 
 Lemma file_trace_read t v :
   isopen t (length t) →
   file_trace t →
-  file_trace (t ++ [("read", v)]).
+  file_trace (t ++ [(#"read", v)%V]).
 Proof. unfold file_trace. intros. go; apply isopen_open'; go. Qed.
 
 Lemma file_trace_nil : file_trace [].
@@ -111,13 +111,13 @@ Context (isOpen_impl isClosed_impl : iProp Σ).
 Context (open_impl close_impl read_impl : val).
 
 Definition open : val :=
-  λ: "_", open_impl #() ;; Emit #"open" #().
+  λ: "_", open_impl #() ;; Emit (#"open", #()).
 
 Definition close : val :=
-  λ: "_", close_impl #() ;; Emit #"close" #().
+  λ: "_", close_impl #() ;; Emit (#"close", #()).
 
 Definition read : val :=
-  λ: "_", read_impl #() ;; Emit #"read" #().
+  λ: "_", read_impl #() ;; Emit (#"read", #()).
 
 Definition isOpen : iProp Σ :=
   isOpen_impl ∗ trace_inv N file_trace ∗

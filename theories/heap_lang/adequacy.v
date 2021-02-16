@@ -30,7 +30,7 @@ Proof.
   iFrame. iApply (Hwp (HeapG _ _ _ _ _)).
 Qed.
 
-Definition heap_invariance Σ `{!heapPreG Σ} (N: namespace) (I: list event → Prop) s e σ :
+Definition heap_invariance Σ `{!heapPreG Σ} (N: namespace) (I: list val → Prop) s e σ :
   I (trace σ) →
   (∀ `{!heapG Σ}, ⊢ trace_inv N I -∗ trace_is (trace σ) -∗ WP e @ s; ⊤ {{ _, True }}) →
   ∀ σ' t,
@@ -62,7 +62,7 @@ Lemma module_invariance {Σ} `{heapPreG Σ} (N: namespace)
   (e: val → expr) (* Context program, parameterized by the module *)
   (e_init: expr) (* Initialization code, used to allocate resources for P0 *)
   (imimpl: val) (* Implementation of the module (instrumented) *)
-  (good_trace: list event → Prop) (* Trace property *)
+  (good_trace: list val → Prop) (* Trace property *)
   (σ: state) (* Initial state *)
 :
   (* The initial trace must satisfy the property *)

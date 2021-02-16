@@ -4,6 +4,9 @@ From iris.base_logic.lib Require Import invariants.
 From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
 Set Default Proof Using "Type".
+Implicit Types t : list val.
+
+Notation trace := (list val) (only parsing).
 
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
   {{{ P0 }}}
@@ -49,28 +52,28 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
 
 Section Trace.
 
-Definition traversal_trace (f: val) (l: list val): list event :=
-  l ≫= (λ x, [("call:foreach_client", (f, x)%V); ("ret:foreach_client", f)]).
+Definition traversal_trace (f: val) (l: list val): trace :=
+  l ≫= (λ x, [(#"call:foreach_client", (f, x))%V; (#"ret:foreach_client", f)%V]).
 
-Inductive good_trace_for : list val → list event → Prop :=
+Inductive good_trace_for : list val → trace → Prop :=
 | good_trace_for_nil: good_trace_for [] []
 | good_trace_for_push x l t:
     good_trace_for l t →
-    good_trace_for (x :: l) (t ++ [("call:push", x); ("ret:push", #())])
+    good_trace_for (x :: l) (t ++ [(#"call:push", x)%V; (#"ret:push", #())%V])
 | good_trace_for_pop_nil t:
     good_trace_for [] t →
-    good_trace_for [] (t ++ [("call:pop", #()); ("ret:pop", #())])
+    good_trace_for [] (t ++ [(#"call:pop", #())%V; (#"ret:pop", #())%V])
 | good_trace_for_pop x l t:
     good_trace_for (x :: l) t →
-    good_trace_for l (t ++ [("call:pop", #()); ("ret:pop", x)])
+    good_trace_for l (t ++ [(#"call:pop", #())%V; (#"ret:pop", x)%V])
 | good_trace_for_foreach l t f:
     good_trace_for l t →
-    good_trace_for l (t ++ [("call:foreach", f)]
+    good_trace_for l (t ++ [(#"call:foreach", f)%V]
                         ++ traversal_trace f l
-                        ++ [("ret:foreach", #())])
+                        ++ [(#"ret:foreach", #())%V])
 .
 
-Definition good_trace (t: list event) :=
+Definition good_trace (t: trace) :=
   ∃ l t', t `prefix_of` t' ∧ good_trace_for l t'.
 
 Lemma good_trace_nil : good_trace [].
@@ -104,15 +107,15 @@ Context (push_impl pop_impl create_impl foreach_impl: val).
 
 Definition push : val :=
   λ: "s" "x",
-    Emit #"call:push" "x" ;;
+    Emit (#"call:push", "x") ;;
     push_impl "s" "x" ;;
-    Emit #"ret:push" #().
+    Emit (#"ret:push", #()).
 
 Definition pop : val :=
   λ: "s",
-    Emit #"call:pop" #() ;;
+    Emit (#"call:pop", #()) ;;
     let: "r" := pop_impl "s" in
-    Emit #"ret:pop" "r" ;;
+    Emit (#"ret:pop", "r") ;;
     "r".
 
 Definition create : val :=
@@ -120,13 +123,13 @@ Definition create : val :=
 
 Definition foreach : val :=
   λ: "s" "f",
-    Emit #"call:foreach" "f" ;;
+    Emit (#"call:foreach", "f") ;;
     foreach_impl "s" (λ: "x",
-      Emit #"call:foreach_client" ("f", "x") ;;
+      Emit (#"call:foreach_client", ("f", "x")) ;;
       "f" "x" ;;
-      Emit #"ret:foreach_client" "f"
+      Emit (#"ret:foreach_client", "f")
     ) ;;
-    Emit #"ret:foreach" #().
+    Emit (#"ret:foreach", #()).
 
 Definition stack_val (l: list val) (s: val): iProp Σ :=
   stack_impl l s ∗ trace_inv N good_trace ∗
@@ -151,7 +154,7 @@ Proof.
   iIntros (φ) "Hs Hφ". unfold push.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Hgood & Ht)".
   iDestruct "Hgood" as %Hgood.
-  wp_pures. wp_bind (Emit _ _).
+  wp_pures. wp_bind (Emit _).
   iApply (wp_emit with "[$Ht $HI]"); eauto.
   { do 2 eexists. split; cycle 1.
     by eapply good_trace_for_push, Hgood.
@@ -176,7 +179,7 @@ Proof.
   iIntros (φ) "Hs Hφ". unfold pop.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Hgood & Ht)".
   iDestruct "Hgood" as %Hgood.
-  wp_pures. wp_bind (Emit _ _).
+  wp_pures. wp_bind (Emit _).
   iApply (wp_emit with "[$Ht $HI]"); eauto.
   { destruct l; eexists _,_; split;
     [| by eapply good_trace_for_pop_nil |
@@ -184,7 +187,7 @@ Proof.
     eexists; rewrite -app_assoc //=. }
   iIntros "!> Ht". wp_pures. wp_bind (pop_impl _).
   iApply ("pop_impl_spec" with "Hs"). iIntros "!>" (v) "Hs".
-  wp_pures. wp_bind (Emit _ _).
+  wp_pures. wp_bind (Emit _).
   destruct l as [|x l'].
   { iDestruct "Hs" as "(-> & Hs)".
     iApply (wp_emit with "[$Ht $HI]"); eauto.
@@ -212,15 +215,15 @@ Proof.
   iIntros (φ) "(#Hf & Hs & HfI) Hφ". unfold foreach.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Hgood & Ht)".
   iDestruct "Hgood" as %Hgood.
-  wp_pures. wp_bind (Emit _ _).
+  wp_pures. wp_bind (Emit _).
   iApply (wp_emit with "[$Ht HI]"); eauto.
   { eexists _,_; split. 2: by eapply good_trace_for_foreach.
     apply prefix_app. eexists; eauto. }
   iIntros "!> Ht". wp_pures. wp_bind (foreach_impl _ _).
   unfold foreach_spec.
-  pose (λ p, I p ∗ trace_is (t ++ [("call:foreach", f)] ++ traversal_trace f p))%I as I'.
+  pose (λ p, I p ∗ trace_is (t ++ [(#"call:foreach", f)%V] ++ traversal_trace f p))%I as I'.
   iApply ("foreach_impl_spec" $! _ _ _ I' with "[$Hs $HfI $Ht]").
-  { iIntros (p x Hpl φ') "!> HfI Hφ'". wp_pures. wp_bind (Emit _ _).
+  { iIntros (p x Hpl φ') "!> HfI Hφ'". wp_pures. wp_bind (Emit _).
     rewrite {1}/I'. iDestruct "HfI" as "(HfI & Htr)".
     iApply (wp_emit with "[$Htr $HI]"); eauto.
     { rewrite -!app_assoc. eexists _,_. split.
@@ -278,7 +281,7 @@ Lemma wrap_stacklib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
   (⊢ ∀ `{heapG Σ} P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
-    good_trace (trace σ').
+    good_trace (heap_lang.trace σ').
 Proof.
   intros Hlib Hctx σ' e' Hsteps.
   eapply (@module_invariance Σ _ stacklibN (@stacklib_spec Σ) True e #() (Wrap.lib lib)

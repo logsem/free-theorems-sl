@@ -5,6 +5,7 @@ From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
 From intensional Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
+Implicit Types t : list val.
 
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
   {{{ P0 }}}
@@ -37,29 +38,27 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
 
 Section Trace.
 
-Print event. (* event = string * val *)
-
-Definition good_stack_trace (t: list event): Prop :=
+Definition good_stack_trace (t: list val): Prop :=
   ∀ (i: nat) (v: val),
-    t !! i = Some ("pop", v) → v ≠ #() →
-    ∃ j, (j < i)%nat ∧ t !! j = Some ("push", v).
+    t !! i = Some (#"pop", v)%V → v ≠ #() →
+    ∃ j, (j < i)%nat ∧ t !! j = Some (#"push", v)%V.
 
 Lemma good_stack_trace_nil : good_stack_trace [].
 Proof. unfold good_stack_trace; go. Qed.
 
 Lemma good_stack_trace_push t v :
-  good_stack_trace t → good_stack_trace (t ++ [("push", v)]).
+  good_stack_trace t → good_stack_trace (t ++ [(#"push", v)%V]).
 Proof. unfold good_stack_trace. go*. Qed.
 
 Lemma good_stack_trace_pop_nil t :
   good_stack_trace t →
-  good_stack_trace (t ++ [("pop", #())]).
+  good_stack_trace (t ++ [(#"pop", #())%V]).
 Proof. unfold good_stack_trace. go*. Qed.
 
 Lemma good_stack_trace_pop t v i :
   good_stack_trace t →
-  t !! i = Some ("push", v) →
-  good_stack_trace (t ++ [("pop", v)]).
+  t !! i = Some (#"push", v)%V →
+  good_stack_trace (t ++ [(#"pop", v)%V]).
 Proof. unfold good_stack_trace. go*. Qed.
 
 End Trace.
@@ -75,17 +74,17 @@ Context (stack_impl: list val → val → iProp Σ).
 Context (push_impl pop_impl create_impl : val).
 
 Definition push : val :=
-  λ: "s" "x", push_impl "s" "x" ;; Emit #"push" "x".
+  λ: "s" "x", push_impl "s" "x" ;; Emit (#"push", "x").
 
 Definition pop : val :=
-  λ: "s", let: "r" := pop_impl "s" in Emit #"pop" "r" ;; "r".
+  λ: "s", let: "r" := pop_impl "s" in Emit (#"pop", "r") ;; "r".
 
 Definition create : val :=
   create_impl.
 
 Definition stack_val (l: list val) (v: val) : iProp Σ :=
   stack_impl l v ∗ trace_inv N good_stack_trace ∗
-  ∃ t, trace_is t ∗ ⌜ Forall (λ x, ∃ i, t !! i = Some ("push", x)) l ⌝.
+  ∃ t, trace_is t ∗ ⌜ Forall (λ x, ∃ i, t !! i = Some (#"push", x)%V) l ⌝.
 
 Lemma create_correct P0 :
   create_spec P0 stack_impl create_impl -∗
@@ -126,7 +125,7 @@ Proof.
   iDestruct "HF" as %HF. wp_pures. wp_bind (pop_impl _).
   iApply ("pop_impl_spec" with "Hs"). iIntros "!>" (v) "Hs".
   iMod (trace_is_inv with "[$] HI") as "(Ht & %)".
-  wp_pures. wp_bind (Emit _ _).
+  wp_pures. wp_bind (Emit _).
   destruct l as [|x l'].
   { iDestruct "Hs" as "(-> & Hs)".
     iApply (wp_emit with "[$Ht $HI]"); eauto.

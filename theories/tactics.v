@@ -74,7 +74,7 @@ Ltac go :=
     | go_step
     | destruct_or!
     | solve [ eauto ]
-    | clear_learnt; unfold event in *; lia ].
+    | clear_learnt; lia ].
 
 Ltac go_trysolve_step :=
   match goal with

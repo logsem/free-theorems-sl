@@ -5,7 +5,7 @@ From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
 From intensional Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
-Implicit Types t : list event.
+Implicit Types t : list val.
 
 Definition withRes_spec `{!heapG Σ} (locked: iProp Σ) (unlocked: val → iProp Σ) (withRes: val): iProp Σ :=
   ∀ P Q (f: val),
@@ -30,20 +30,20 @@ Definition bfilelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
 
 Section Trace.
 
-Inductive op_trace : list event → Prop :=
+Inductive op_trace : list val → Prop :=
 | op_trace_nil : op_trace []
 | op_trace_call t :
     op_trace t →
-    op_trace (t ++ [("call:op", #()); ("ret:op", #())]).
+    op_trace (t ++ [(#"call:op", #())%V; (#"ret:op", #())%V]).
 
-Inductive withRes_trace : list event → Prop :=
+Inductive withRes_trace : list val → Prop :=
 | withRes_trace_nil : withRes_trace []
 | withRes_trace_call t t_op f :
     withRes_trace t →
     op_trace t_op →
-    withRes_trace (t ++ [("call:withRes", f); ("call", f)]
+    withRes_trace (t ++ [(#"call:withRes", f)%V; (#"call", f)%V]
                      ++ t_op
-                     ++ [("ret", f); ("ret:withRes", f)]).
+                     ++ [(#"ret", f)%V; (#"ret:withRes", f)%V]).
 
 Definition bfile_trace t :=
   ∃ t', t `prefix_of` t' ∧ withRes_trace t'.
@@ -51,19 +51,19 @@ Definition bfile_trace t :=
 (* *** *)
 
 Definition trace1 t f :=
-  ∃ t', withRes_trace t' ∧ t = t' ++ [("call:withRes", f)].
+  ∃ t', withRes_trace t' ∧ t = t' ++ [(#"call:withRes", f)%V].
 
 Definition trace2 t (f:val) :=
   ∃ t' t_op, withRes_trace t'
            ∧ op_trace t_op
-           ∧ t = t' ++ [("call:withRes", f); ("call", f)] ++ t_op.
+           ∧ t = t' ++ [(#"call:withRes", f)%V; (#"call", f)%V] ++ t_op.
 
 Definition trace3 t (f: val) :=
   ∃ t' t_op, withRes_trace t'
            ∧ op_trace t_op
-           ∧ t = t' ++ [("call:withRes", f); ("call", f)]
+           ∧ t = t' ++ [(#"call:withRes", f)%V; (#"call", f)%V]
                     ++ t_op
-                    ++ [("ret", f)].
+                    ++ [(#"ret", f)%V].
 
 End Trace.
 
@@ -79,17 +79,17 @@ Context (withRes_impl op_impl : val).
 
 Definition withRes : val :=
   λ: "f",
-    Emit #"call:withRes" "f" ;;
+    Emit (#"call:withRes", "f") ;;
     withRes_impl (λ: "x",
-      Emit #"call" "f" ;; "f" "x" ;; Emit #"ret" "f"
+      Emit (#"call", "f") ;; "f" "x" ;; Emit (#"ret", "f")
     ) ;;
-    Emit #"ret:withRes" "f".
+    Emit (#"ret:withRes", "f").
 
 Definition op : val :=
   λ: "x",
-    Emit #"call:op" #() ;;
+    Emit (#"call:op", #()) ;;
     op_impl "x" ;;
-    Emit #"ret:op" #().
+    Emit (#"ret:op", #()).
 
 Definition T0 : iProp Σ :=
   ∃ t, trace_is t ∗ trace_inv N bfile_trace ∗ ⌜ withRes_trace t ⌝.
@@ -116,7 +116,7 @@ Proof.
   iIntros "#spec" (P Q f φ) "!> (Hl & HP & #HS) Hφ".
   iDestruct "Hl" as "(Hl & Ht0)". iDestruct "Ht0" as (t) "(Ht & #Hi & %)".
   iMod (trace_is_inv with "Ht Hi") as "[Ht %]".
-  unfold withRes. wp_pures. wp_bind (Emit _ _).
+  unfold withRes. wp_pures. wp_bind (Emit _).
   iApply (wp_emit with "[$Ht $Hi]"); eauto.
   { eexists. split. 2: eapply withRes_trace_call.
     by apply prefix_app, prefix_cons, prefix_nil.
@@ -125,7 +125,7 @@ Proof.
   iApply ("spec" $! (P ∗ T1 f)%I (Q ∗ T3 f)%I with "[$Hl $HP Ht]").
   { iSplitL "Ht".
     { iExists _. iFrame "Hi ∗". iPureIntro. unfold trace1. go. }
-    iIntros (y x ψ) "!> (Hu & [HP Ht1]) Hψ". wp_pures. wp_bind (Emit _ _).
+    iIntros (y x ψ) "!> (Hu & [HP Ht1]) Hψ". wp_pures. wp_bind (Emit _).
     iDestruct "Ht1" as (t') "(Ht' & _ & Ht1)". iDestruct "Ht1" as %Ht1.
     iApply (wp_emit with "[$Ht' $Hi]"); eauto.
     { destruct Ht1 as [t'' [? ->]]. eexists. split. 2: eapply withRes_trace_call.
@@ -159,7 +159,7 @@ Lemma op_correct :
 Proof.
   iIntros "#spec" (x y φ) "!> Hu Hφ". iDestruct "Hu" as (y' z ->) "(Hu & Ht2)".
   iDestruct "Ht2" as (t) "(Ht & #Hi & Ht2)". iDestruct "Ht2" as %Ht2.
-  unfold op. wp_pures. wp_bind (Emit _ _).
+  unfold op. wp_pures. wp_bind (Emit _).
   destruct Ht2 as [t' [t_op (? & ? & ->)]].
   iApply (wp_emit with "[$Ht $Hi]"); eauto.
   { eexists. split. 2: eapply withRes_trace_call. rewrite -!app_assoc.

@@ -33,8 +33,8 @@ Proof.
   { intros. cbn. rewrite dom_insert_L elem_of_union elem_of_singleton IHl. lia. }
 Qed.
 
-Definition eventO := leibnizO event.
-Definition traceO := leibnizO (list event).
+Definition eventO := leibnizO val.
+Definition traceO := leibnizO (list val).
 
 Class traceG Σ := TraceG {
   trace_hist_inG :> inG Σ (authR (gmapUR nat (agreeR eventO)));
@@ -49,7 +49,7 @@ Definition traceΣ : gFunctors :=
 
 Class trace_preG Σ := TracePreG {
   trace_hist_preG_inG :> inG Σ (authR (gmapUR nat (agreeR eventO)));
-  trace_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO (list event))));
+  trace_preG_inG :> inG Σ (frac_authR (agreeR traceO));
 }.
 
 Instance subG_tracePreG : subG traceΣ Σ → trace_preG Σ.
@@ -62,19 +62,19 @@ Class heapG Σ := HeapG {
   heapG_traceG :> traceG Σ;
 }.
 
-Definition trace_auth `{hT: traceG Σ} (t: list event) :=
+Definition trace_auth `{hT: traceG Σ} (t: list val) :=
   (own trace_name (●F (to_agree (t: traceO))))%I.
-Definition hist `{hT: traceG Σ} (t: list event) :=
+Definition hist `{hT: traceG Σ} (t: list val) :=
   own trace_hist_name (◯ (gmap_of_trace 0 t)).
-Definition trace_half_frag `{hT:traceG} (t: list event) :=
+Definition trace_half_frag `{hT:traceG} (t: list val) :=
   own trace_name (◯F{1/2} (to_agree (t: traceO))).
-Definition trace_is `{hT: traceG Σ} (t: list event) :=
+Definition trace_is `{hT: traceG Σ} (t: list val) :=
   (trace_half_frag t ∗ own trace_hist_name (● gmap_of_trace 0 t) ∗ hist t)%I.
 
-Definition trace_inv `{hT:traceG Σ, hI:invG Σ} (ι: namespace) (I: list event → Prop) :=
+Definition trace_inv `{hT:traceG Σ, hI:invG Σ} (ι: namespace) (I: list val → Prop) :=
   inv ι (∃ t, trace_half_frag t ∗ ⌜I t⌝).
 
-Instance hist_persistent `{traceG Σ} (t: list event): Persistent (hist t) := _.
+Instance hist_persistent `{traceG Σ} (t: list val): Persistent (hist t) := _.
 
 Lemma alloc_hist `{traceG Σ} t :
   trace_is t -∗ trace_is t ∗ hist t.
@@ -110,20 +110,20 @@ Proof.
   destruct Hv as [_ Hv]. apply agree_op_inv', leibniz_equiv in Hv. eauto.
 Qed.
 
-Lemma trace_add_event `{traceG Σ} t (e: event) :
+Lemma trace_add_event `{traceG Σ} t (v: val) :
   trace_auth t -∗ trace_is t -∗ trace_half_frag t ==∗
-  trace_auth (t ++ [e]) ∗ trace_is (t ++ [e]) ∗ trace_half_frag (t ++ [e]).
+  trace_auth (t ++ [v]) ∗ trace_is (t ++ [v]) ∗ trace_half_frag (t ++ [v]).
 Proof.
   rewrite /trace_auth /trace_is /hist.
   iIntros "H1 (H2 & H2ha & H2h) H3".
   iDestruct (own_op with "[$H2 $H3]") as "H2".
   rewrite -frac_auth_frag_op Qp_half_half agree_idemp.
-  iMod (own_update_2 _ _ _ (●F (to_agree (t++[e]:traceO)) ⋅ ◯F (to_agree (t++[e]:traceO))) with "H1 H2") as "[? ?]".
+  iMod (own_update_2 _ _ _ (●F (to_agree (t++[v]:traceO)) ⋅ ◯F (to_agree (t++[v]:traceO))) with "H1 H2") as "[? ?]".
   by apply frac_auth_update_1.
   rewrite gmap_of_trace_snoc Nat.add_0_l.
   iMod (own_update_2 with "H2ha H2h") as "[? ?]".
   apply auth_update.
-  eapply (alloc_local_update _ _ (length t : nat) (to_agree (e:eventO))); [|done].
+  eapply (alloc_local_update _ _ (length t : nat) (to_agree (v:eventO))); [|done].
   { eapply not_elem_of_dom. intros ?%gmap_of_trace_dom. lia. }
   iModIntro. iFrame.
   rewrite /trace_half_frag -own_op -frac_auth_frag_op Qp_half_half agree_idemp //.
@@ -189,7 +189,7 @@ Proof.
   { intro. cbn. eapply (@insert_valid _ _ _ (agreeR (leibnizO A))); eauto; done. }
 Qed.
 
-Lemma trace_auth_init `{hT: trace_preG Σ} (t: list event) :
+Lemma trace_auth_init `{hT: trace_preG Σ} (t: list val) :
   ⊢ |==> ∃ H: traceG Σ, trace_auth t ∗ trace_is t ∗ trace_half_frag t.
 Proof.
   iMod (own_alloc (●F (to_agree (t: traceO)) ⋅ ◯F (to_agree (t: traceO)))) as (γ) "Hγ".
@@ -293,7 +293,7 @@ Instance cmpxchg_atomic s v0 v1 v2 : Atomic s (CmpXchg (Val v0) (Val v1) (Val v2
 Proof. solve_atomic. Qed.
 Instance faa_atomic s v1 v2 : Atomic s (FAA (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
-Instance emit_atomic s tag v : Atomic s (Emit (Val tag) (Val v)).
+Instance emit_atomic s v : Atomic s (Emit (Val v)).
 Proof. solve_atomic. Qed.
 Instance fresh_atomic s v : Atomic s (Fresh (Val v)).
 Proof. solve_atomic. Qed.
@@ -413,12 +413,12 @@ Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types l : loc.
 
-Lemma wp_emit s E tr (tag: string) v ι (I: list event → Prop) :
+Lemma wp_emit s E tr v ι (I: list val → Prop) :
   ↑ι ⊆ E →
-  I (tr ++ [(tag, v)]) →
+  I (tr ++ [v]) →
   {{{ trace_is tr ∗ trace_inv ι I }}}
-    Emit (#tag) v @ s; E
-  {{{ RET (LitV LitUnit); trace_is (tr ++ [(tag, v)]) }}}.
+    Emit v @ s; E
+  {{{ RET (LitV LitUnit); trace_is (tr ++ [v]) }}}.
 Proof.
   iIntros (Hι HI φ) "[Ht Hi] Hφ".
   iInv "Hi" as ">Hi" "Hclose".
@@ -434,22 +434,30 @@ Proof.
   iModIntro. by iApply "Hφ".
 Qed.
 
-Lemma pick_fresh_tag (tr: list event) :
+Lemma pick_fresh_tag (tr: list val) :
   ∃ (tag: string), fresh_tag tag tr.
 Proof.
-  exists (fresh (tr.*1)).
+  pose get_tag := (λ (v:val), match v with (LitV (LitTag tag), _)%V => Some tag | _ => None end).
+  set tags := map get_tag tr.
+  set tag := fresh (None :: tags).
+  destruct tag as [tag' |] eqn:Htag; cycle 1.
+  { subst tag. pose proof (infinite_is_fresh (None :: tags)) as Htag'.
+    exfalso. apply Htag'. rewrite Htag. constructor. }
+  subst tag. rename tag' into tag. exists tag.
   unfold fresh_tag. intros ? H.
-  rewrite -(zip_fst_snd tr) in H. apply elem_of_zip_l in H.
-  rewrite fst_zip in H. 2: rewrite !map_length //.
-  by apply infinite_is_fresh in H.
+  enough (Some tag ∈ map get_tag tr) as HH.
+  { apply (infinite_is_fresh (None :: tags)). constructor.
+    by rewrite Htag. }
+  apply elem_of_list_In in H. apply elem_of_list_In, in_map_iff.
+  eexists. split; eauto. reflexivity.
 Qed.
 
-Lemma wp_fresh s E tr v ι (I: list event → Prop) :
+Lemma wp_fresh s E tr v ι (I: list val → Prop) :
   ↑ι ⊆ E →
-  (∀ tag, fresh_tag tag tr → I (tr ++ [(tag, v)])) →
+  (∀ tag, fresh_tag tag tr → I (tr ++ [(#tag, v)%V])) →
   {{{ trace_is tr ∗ trace_inv ι I }}}
     Fresh v @ s; E
-  {{{ (tag:string), RET (LitV tag); trace_is (tr ++ [(tag, v)]) }}}.
+  {{{ (tag:string), RET (LitV tag); trace_is (tr ++ [(#tag, v)%V]) }}}.
 Proof.
   iIntros (Hι HI φ) "[Ht Hi] Hφ".
   iInv "Hi" as ">Hi" "Hclose".
