@@ -85,17 +85,17 @@ Context (withRes_impl op_impl : val).
 
 Definition withRes : val :=
   λ: "f",
-    Emit "call:withRes" "f" ;;
+    Emit #"call:withRes" "f" ;;
     withRes_impl (λ: "x",
-      Emit "call" "f" ;; "f" "x" ;; Emit "ret" "f"
+      Emit #"call" "f" ;; "f" "x" ;; Emit #"ret" "f"
     ) ;;
-    Emit "ret:withRes" "f".
+    Emit #"ret:withRes" "f".
 
 Definition op : val :=
   λ: "x",
-    Emit "call:op" #() ;;
+    Emit #"call:op" #() ;;
     op_impl "x" ;;
-    Emit "ret:op" #().
+    Emit #"ret:op" #().
 
 Definition T0 : iProp Σ :=
   ∃ t, trace_is t ∗ trace_inv N bfile_trace ∗ ⌜ withRes_trace t ⌝.
