@@ -24,7 +24,7 @@ Context (Pinit: iProp Σ)
         (P_content: gname → S → iProp Σ).
 
 Definition init_spec (init: val) : iProp Σ :=
-  {{{ Pinit }}} init {{{ γ r, RET r; is_P γ r ∗ P_content γ s_init }}}.
+  {{{ Pinit }}} init #() {{{ γ r, RET r; is_P γ r ∗ P_content γ s_init }}}.
 
 Definition op_spec (op: val) : iProp Σ :=
   ∀ γ (x y: val),
@@ -138,7 +138,7 @@ Context (HPT: ∀ γ s, Timeless (P_content_impl γ s)).
 Context (init_impl op_impl : val).
 
 Definition init : val :=
-  init_impl.
+  λ: "_", let: "r" := init_impl #() in "r".
 
 Definition op : val :=
   λ: "x" "y",
@@ -175,7 +175,7 @@ Definition P_content γ s : iProp Σ :=
     own γw (◯E (s:SO)) ∗
     own γ (◯E ((γi, γw) : leibnizO (gname * gname))).
 
-Lemma excl_agree_eq A `{inG Σ (excl_authR (leibnizO A))} γ (x y: A):
+Lemma excl_auth_eq A `{inG Σ (excl_authR (leibnizO A))} γ (x y: A):
   own γ (◯E (x:leibnizO A)) -∗ own γ (●E (y:leibnizO A)) -∗ ⌜x = y⌝.
 Proof.
   iIntros "H1 H2". iDestruct (own_op with "[$H1 $H2]") as "H".
@@ -191,14 +191,31 @@ Proof.
   apply excl_auth_update. iModIntro. iFrame.
 Qed.
 
-(* Lemma init_correct : *)
-(*   init_spec Pinit_impl is_P_impl P_content_impl init_impl -∗ *)
-(*   init_spec Pinit is_P P_content init. *)
-(* Proof. *)
-(*   iIntros "#spec" (φ) "!> (Hi & Ht) Hφ". unfold init. *)
-(*   iApply ("spec" with "Hi"). iIntros "!>" (γ x) "(Hi & Hc)". *)
-(*   iApply "Hφ". iFrame. *)
+Lemma excl_auth_alloc A `{inG Σ (excl_authR (leibnizO A))} (x: A):
+  ⊢ |==> ∃ γ, own γ (◯E (x:leibnizO A)) ∗ own γ (●E (x:leibnizO A)).
+Proof.
+  iIntros.
+  iMod (own_alloc (●E (x:leibnizO A) ⋅ ◯E (x:leibnizO A))) as (γ) "[? ?]".
+  apply excl_auth_valid. iModIntro. iExists _. iFrame.
+Qed.
 
+Lemma init_correct :
+  init_spec Pinit_impl is_P_impl P_content_impl init_impl -∗
+  init_spec Pinit is_P P_content init.
+Proof.
+  iIntros "#spec" (φ) "!> (Hi & Ht) Hφ". unfold init.
+  iMod (excl_auth_alloc _ s_init) as (γw) "(Hwf & Hwa)".
+  wp_pures. wp_bind (init_impl _).
+  iApply ("spec" with "Hi"). iIntros "!>" (γi x) "(HH1 & HH2)".
+  iMod (excl_auth_alloc _ (γi, γw)) as (γ) "(Hf & Ha)".
+  iMod (inv_alloc N' _ (∃ s, trace_inv γ γi γw s)%I with "[Ht Ha Hwa]")
+    as "HI".
+  { iNext. iExists s_init. iFrame. iExists []. iFrame. iPureIntro.
+    split; constructor. }
+  wp_pures. iApply "Hφ".
+  iSplitL "HH1 HI". { iExists γi, γw. iFrame. }
+  iExists γi, γw. iFrame.
+Qed.
 
 Lemma op_correct :
   op_spec (↑N) is_P_impl P_content_impl op_impl -∗
@@ -228,8 +245,8 @@ Proof using HPT HPP HNN'.
   iMod "HAU" as (s') "(HH & Hnext)". by set_solver.
   iDestruct "HH" as (γi' γw') "(HHi & HHf & Hγf)".
   iDestruct "HI" as "(HHa & Hγa & HI)".
-  iDestruct (excl_agree_eq with "Hγf Hγa") as %?. simplify_eq.
-  iDestruct (excl_agree_eq with "HHf HHa") as %->.
+  iDestruct (excl_auth_eq with "Hγf Hγa") as %?. simplify_eq.
+  iDestruct (excl_auth_eq with "HHf HHa") as %->.
   iModIntro. iExists _. iFrame "HHi".
   iSplit.
   { (* abort case *)
