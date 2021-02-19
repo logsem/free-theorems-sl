@@ -156,20 +156,24 @@ Definition is_call_return (v: val) :=
   | _ => false
   end.
 
-Definition trace_inv (γ: gname) (s: S) : iProp Σ :=
+Definition trace_inv (γ γi γw: gname) (s: S) : iProp Σ :=
+  own γw (●E (s:SO)) ∗
+  own γ (●E ((γi, γw) : leibnizO (gname * gname))) ∗
   ∃ (β: list val),
     ⌜linearization_trace β⌝ ∗
     ⌜linearized_sound β s_init s⌝ ∗
-    trace_is (filter is_call_return β) ∗
-    own γ (●E (s:SO)).
+    trace_is (filter is_call_return β).
 
 Definition is_P γ x : iProp Σ :=
-    is_P_impl γ(*XXX*) x ∗
-    inv N' (∃ s, trace_inv γ s).
+  ∃ γi γw,
+    is_P_impl γi x ∗
+    inv N' (∃ s, trace_inv γ γi γw s).
 
 Definition P_content γ s : iProp Σ :=
-  P_content_impl γ(*XXX*) s ∗
-  own γ (◯E (s:SO)).
+  ∃ γi γw,
+    P_content_impl γi s ∗
+    own γw (◯E (s:SO)) ∗
+    own γ (◯E ((γi, γw) : leibnizO (gname * gname))).
 
 Lemma excl_agree_eq A `{inG Σ (excl_authR (leibnizO A))} γ (x y: A):
   own γ (◯E (x:leibnizO A)) -∗ own γ (●E (y:leibnizO A)) -∗ ⌜x = y⌝.
@@ -196,57 +200,66 @@ Qed.
 (*   iApply "Hφ". iFrame. *)
 
 
-
 Lemma op_correct :
   op_spec (↑N) is_P_impl P_content_impl op_impl -∗
   op_spec (↑N ∪ ↑N') is_P P_content op.
 Proof using HPT HPP HNN'.
-  iIntros "spec" (γ x y) "(#H1 & #H2)".
+  iIntros "spec" (γ x y) "His".
+  iDestruct "His" as (γi γw) "(#HPimpl & #?)".
   iIntros (φ) "HAU".
   unfold op. wp_pures. wp_bind (Fresh _). unfold op_spec.
-  iInv N' as ">Ht" "Hclose". iDestruct "Ht" as (s β) "(% & % & Ht & Hγ)".
+  iInv N' as ">Ht" "Hclose".
+  iDestruct "Ht" as (s) "(Hγw & Hγ & Ht)".
+  iDestruct "Ht" as (β) "(% & % & Ht)".
   iApply (wp_fresh with "Ht"). iNext. iIntros (tag) "(Ht & %)".
-  iMod ("Hclose" with "[Ht Hγ]") as "_".
-  { iNext. iExists s. unfold trace_inv at 2.
-    iExists (β ++ [(#tag, (#"call", y))%V])(*XXX*).
+  iMod ("Hclose" with "[Ht Hγw Hγ]") as "_".
+  { iNext. iExists s. unfold trace_inv at 2. iFrame. 
+    iExists (β ++ [(#tag, (#"call", y))%V]).
     iSplitR. iPureIntro; by constructor.
     iSplitR. iPureIntro; by constructor; eauto.
-    iFrame. rewrite filter_app //=. }
+    rewrite filter_app //=. }
   iModIntro. wp_pures. clear dependent s β.
 
-  iSpecialize ("spec" $! _ _ y with "H1").
+  iSpecialize ("spec" $! _ _ y with "HPimpl").
   awp_apply "spec".
 
   rewrite /atomic_acc /=.
   iInv N' as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
   iMod "HAU" as (s') "(HH & Hnext)". by set_solver.
-  iDestruct "HH" as "(HHi & HHa)".
+  iDestruct "HH" as (γi' γw') "(HHi & HHf & Hγf)".
+  iDestruct "HI" as "(HHa & Hγa & HI)".
+  iDestruct (excl_agree_eq with "Hγf Hγa") as %?. simplify_eq.
+  iDestruct (excl_agree_eq with "HHf HHa") as %->.
   iModIntro. iExists _. iFrame "HHi".
   iSplit.
   { (* abort case *)
     iIntros "HHi". iDestruct "Hnext" as "[Hnext _]".
-    iSpecialize ("Hnext" with "[$HHi $HHa]").
-    iMod "Hnext". iMod ("Hclose" with "[HI]") as "_"; eauto. }
+    iSpecialize ("Hnext" with "[HHi HHf Hγf]").
+    { iExists γi, γw. iFrame. }
+    iMod "Hnext". iMod ("Hclose" with "[HI HHa Hγa]") as "_"; eauto; [].
+    iNext. iExists _. iFrame. }
 
   (* continue case *)
   iIntros "HHi". iDestruct "Hnext" as "[_ Hnext]".
-  iDestruct "HI" as (β) "(% & % & Ht & HHf)".
-  iDestruct (excl_agree_eq with "HHa HHf") as %->.
-  iDestruct (excl_auth_upd _ _ _ _ (f s y) with "HHa HHf") as ">[HHa HHf]".
-  iSpecialize ("Hnext" with "[$HHi $HHa]"). iMod "Hnext".
-  iMod ("Hclose" with "[Ht HHf]") as "_".
-  { iNext. iExists _. unfold trace_inv at 2.
-    iExists (β ++ [(#tag, (#"lin", (y, r s y)))%V]). iFrame.
+  iDestruct "HI" as (β) "(% & % & Ht)".
+  iDestruct (excl_auth_upd _ _ _ _ (f s y) with "HHf HHa") as ">[HHf HHa]".
+  iSpecialize ("Hnext" with "[HHi HHf Hγf]").
+  { iExists γi, γw. iFrame. }
+  iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa]") as "_".
+  { iNext. iExists _. unfold trace_inv at 2. iFrame.
+    iExists (β ++ [(#tag, (#"lin", (y, r s y)))%V]).
     rewrite filter_app app_nil_r. iFrame. iPureIntro. split.
     { by constructor. }
     { by eapply linearized_sound_lin. } }
 
   iModIntro. wp_pures. wp_bind (Emit _).
-  iInv N' as ">HI" "Hclose". iDestruct "HI" as (s' β') "(% & % & Ht & HHf)".
+  iInv N' as ">HI" "Hclose".
+  iDestruct "HI" as (s') "(HHa & Hγa & HI)".
+  iDestruct "HI" as (β') "(% & % & Ht)".
   iApply (wp_emit with "Ht"). iIntros "!> Ht".
-  iMod ("Hclose" with "[HHf Ht]").
-  { iNext. iExists _. unfold trace_inv at 2.
-    iExists (β' ++ [(#tag, (#"ret", (y, r s y)))%V]). iFrame.
+  iMod ("Hclose" with "[HHa Hγa Ht]").
+  { iNext. iExists _. unfold trace_inv at 2. iFrame.
+    iExists (β' ++ [(#tag, (#"ret", (y, r s y)))%V]).
     rewrite filter_app. iFrame. iPureIntro. split.
     { by constructor. }
     { by constructor; eauto. } }
