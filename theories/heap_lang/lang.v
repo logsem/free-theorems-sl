@@ -624,8 +624,15 @@ Proof.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
-Definition fresh_tag (tag: string) (t: list val) :=
-  ∀ (v: val), (PairV (LitV (LitTag tag)) v) ∉ t.
+Fixpoint tags (t: list val): list string :=
+  match t with
+  | [] => []
+  | v :: t =>
+    match v with
+    | PairV (LitV (LitTag tag)) _ => [tag]
+    | _ => []
+    end ++ tags t
+  end.
 
 Inductive head_step : expr → state → list observation → expr → state → list expr → Prop :=
   | RecS f x e σ :
@@ -705,7 +712,7 @@ Inductive head_step : expr → state → list observation → expr → state →
                (state_add_event v σ) []
 
   | FreshS v σ tag :
-    fresh_tag tag σ.(trace) →
+    tag ∉ tags σ.(trace) →
     head_step (Fresh (Val v)) σ [] (Val $ LitV (LitTag tag))
               (state_add_event (PairV (LitV (LitTag tag)) v) σ) [].
 

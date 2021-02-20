@@ -421,27 +421,13 @@ Qed.
 (* Qed. *)
 
 Lemma pick_fresh_tag (tr: list val) :
-  ∃ (tag: string), fresh_tag tag tr.
-Proof.
-  pose get_tag := (λ (v:val), match v with (LitV (LitTag tag), _)%V => Some tag | _ => None end).
-  set tags := map get_tag tr.
-  set tag := fresh (None :: tags).
-  destruct tag as [tag' |] eqn:Htag; cycle 1.
-  { subst tag. pose proof (infinite_is_fresh (None :: tags)) as Htag'.
-    exfalso. apply Htag'. rewrite Htag. constructor. }
-  subst tag. rename tag' into tag. exists tag.
-  unfold fresh_tag. intros ? H.
-  enough (Some tag ∈ map get_tag tr) as HH.
-  { apply (infinite_is_fresh (None :: tags)). constructor.
-    by rewrite Htag. }
-  apply elem_of_list_In in H. apply elem_of_list_In, in_map_iff.
-  eexists. split; eauto. reflexivity.
-Qed.
+  ∃ (tag: string), tag ∉ tags tr.
+Proof. exists (fresh (tags tr)). apply infinite_is_fresh. Qed.
 
 Lemma wp_fresh s E tr v :
   {{{ trace_is tr }}}
     Fresh v @ s; E
-  {{{ (tag:string), RET (LitV tag); trace_is (tr ++ [(#tag, v)%V]) ∗ ⌜fresh_tag tag tr⌝ }}}.
+  {{{ (tag:string), RET (LitV tag); trace_is (tr ++ [(#tag, v)%V]) ∗ ⌜tag ∉ tags tr⌝ }}}.
 Proof.
   iIntros (φ) "Ht Hφ".
   iApply wp_lift_atomic_head_step; [done|].
