@@ -330,6 +330,29 @@ Proof.
     rewrite filter_app filter_check_single_tag_neq // app_nil_r //. }
 Qed.
 
+Lemma emit_state_res_lin_to_ret v v' t (m: gmap string (agree (leibnizO gname))) (tag:string) γs :
+  m !! tag = Some (to_agree γs) →
+  own γs (◯E (AfterLin v v' : leibnizO _)) ∗ emit_state_res t m
+  ==∗
+  own γs (◯E (AfterRet v v' :leibnizO _)) ∗ emit_state_res (t ++ [(#tag, (#"ret", (v, v')))%V]) m.
+Proof.
+  iIntros (Htag) "[Hs Hm]".
+  iDestruct (big_sepM_delete _ _ tag with "Hm") as "(Htag & Hm)". done.
+  iDestruct "Htag" as (? ? ?) "(Hsa & Hst)". simplify_eq.
+  iDestruct "Hst" as %Hst.
+  iDestruct (excl_auth_eq with "Hs Hsa") as %<-.
+  iMod (excl_auth_upd _ _ _ _ (AfterRet v v') with "Hs Hsa") as "[Hs Hsa]".
+  iFrame. iModIntro. unfold emit_state_res. rewrite (big_sepM_delete _ m tag) //; [].
+  iSplitL "Hsa".
+  { iExists _, _. iSplitR; [by eauto|]. iFrame. iPureIntro.
+    rewrite filter_app filter_check_single_tag_eq Hst //. }
+  { iApply (big_sepM_mono with "Hm"). iIntros (tag' g Htag') "H".
+    iDestruct "H" as (γ st ->) "(Hγ & H)". iDestruct "H" as %Hst'.
+    apply lookup_delete_Some in Htag' as [? Htag']. iExists _, _.
+    iSplitR; [by eauto|]. iFrame. iPureIntro.
+    rewrite filter_app filter_check_single_tag_neq // app_nil_r //. }
+Qed.
+
 Definition trace_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
   own γw (●E (s:SO)) ∗
   own γ (●E ((γi, γw, γt) : leibnizO (gname * gname * gname))) ∗
@@ -438,6 +461,40 @@ Proof.
   { exists v0, v0'. rewrite filter_check_single_tag_neq // app_nil_r //. }
 Qed.
 
+Lemma per_tag_linearized_add_ret t (tag:string) v v':
+  per_tag_linearized t →
+  filter (λ v, check_tag tag v) t = [(#tag, (#"call", v))%V; (#tag, (#"lin", (v, v')))%V] →
+  per_tag_linearized (t ++ [(#tag, (#"ret", (v, v')))%V]).
+Proof.
+  intros Htl Hft. intro tag'.
+  specialize (Htl tag') as (v0 & v0' & Htl).
+  rewrite filter_app.
+  destruct (decide (tag = tag')).
+  { subst. exists v, v'. rewrite Hft filter_check_single_tag_eq.
+    repeat apply prefix_cons. apply prefix_nil. }
+  { exists v0, v0'. rewrite filter_check_single_tag_neq // app_nil_r //. }
+Qed.
+
+Lemma emit_state_res_lookup_sub γ (m m':gmap string (agree (leibnizO gname))) tag g t:
+  m !! tag = Some (to_agree g) →
+  own γ (◯ m) -∗ own γ (● m') -∗ emit_state_res t m' -∗
+  ⌜m' !! tag = Some (to_agree g)⌝.
+Proof.
+  iIntros (Hkv) "Hf Ha Hm".
+  iDestruct (own_op with "[$Ha $Hf]") as "HH".
+  iDestruct (own_valid with "HH") as %[Hsub Hv]%auth_both_valid.
+  pose proof (dom_included _ _ Hsub) as Hsub_dom.
+  rewrite lookup_included in Hsub |- * => Hsub. specialize (Hsub tag).
+  assert (tag ∈ dom (gset string) m') as Htag''.
+  { rewrite elem_of_subseteq in Hsub_dom |- * => Hsub_dom.
+    eapply Hsub_dom, elem_of_dom_2; eauto. }
+  apply elem_of_dom in Htag'' as [vtok'' Htag'']. rewrite Htag'' in Hsub.
+  rewrite Hkv in Hsub. rewrite Some_included_total in Hsub |- * => Hsub.
+  iDestruct (big_sepM_lookup _ _ tag with "Hm") as (? ? ?) "Hm". by eauto.
+  subst vtok''. rewrite to_agree_included in Hsub |- * => Hsub.
+  apply leibniz_equiv in Hsub. simplify_eq. done.
+Qed.
+
 Lemma op_correct :
   op_spec (↑N) is_P_impl P_content_impl op_impl -∗
   op_spec (↑N ∪ ↑N') is_P P_content op.
@@ -445,6 +502,9 @@ Proof using HPT HPP HNN'.
   iIntros "spec" (γ x y) "His".
   iDestruct "His" as (γi γw γt) "(#HPimpl & #?)".
   iIntros (φ) "HAU".
+
+  (* first emit: call *)
+
   unfold op. wp_pures. wp_bind (Fresh _). unfold op_spec.
   iInv N' as ">Ht" "Hclose".
   iDestruct "Ht" as (s) "(Hγw & Hγ & Ht)".
@@ -511,7 +571,7 @@ Proof using HPT HPP HNN'.
     { iNext. iExists _. iFrame. }
     iModIntro. iFrame. }
 
-  (* continue case *)
+  (* continue case: lin "ghost" emit *)
   iIntros "HHi". iDestruct "Hnext" as "[_ Hnext]".
   iDestruct "HI" as (β' tokens'') "(% & % & % & Ht & Hγta & Hγtf' & Htoks_dom & Htoks)".
   iDestruct "Htoks_dom" as %Htoks_dom'.
@@ -519,19 +579,8 @@ Proof using HPT HPP HNN'.
   iSpecialize ("Hnext" with "[HHi HHf Hγf]").
   { iExists γi, γw, γt. iFrame. }
 
-  iAssert (⌜tokens'' !! tag = Some (to_agree gts)⌝)%I as %Htagβ'.
-  { iDestruct (own_op with "[$Hγta $Hγtf]") as "HH".
-    iDestruct (own_valid with "HH") as %[Hsub Hv]%auth_both_valid.
-    pose proof (dom_included _ _ Hsub) as Hsub_dom.
-    rewrite lookup_included in Hsub |- * => Hsub. specialize (Hsub tag).
-    rewrite (_: tokens' !! tag = Some (to_agree gts)) in Hsub.
-    2: by rewrite lookup_insert //.
-    assert (tag ∈ dom (gset string) tokens'') as Htag'' by set_solver.
-    apply elem_of_dom in Htag'' as [vtok'' Htag'']. rewrite Htag'' in Hsub.
-    rewrite Some_included_total in Hsub |- * => Hsub.
-    iDestruct (big_sepM_lookup _ _ tag with "Htoks") as (? ? ?) "Htok". by eauto.
-    subst vtok''. rewrite to_agree_included in Hsub |- * => Hsub.
-    apply leibniz_equiv in Hsub. simplify_eq. done. }
+  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Htoks") as %?.
+    by rewrite lookup_insert //.
 
   iAssert (⌜filter (λ v, check_tag tag v) β' = [(#tag, (#"call", y))%V]⌝)%I as %Hprevtag.
   { iDestruct (big_sepM_lookup _ _ tag with "Htoks") as (? ? ?) "(Hts & Htok)". by eauto.
@@ -540,7 +589,7 @@ Proof using HPT HPP HNN'.
   iDestruct (emit_state_res_call_to_lin _ (r s y) with "[$Hgtsf $Htoks]") as ">[Hgtsf Htoks]".
     done.
 
-  iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa Hgtsf Hγta Hγtf' Htoks]") as "_".
+  iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa Hγta Hγtf' Htoks]") as "_".
   { iNext. iExists _. unfold trace_inv at 2. iFrame.
     iExists (β' ++ [(#tag, (#"lin", (y, r s y)))%V]), tokens''.
     rewrite filter_app app_nil_r. iFrame.
@@ -549,17 +598,36 @@ Proof using HPT HPP HNN'.
     iSplitR. iPureIntro; by apply per_tag_linearized_add_lin.
     done. }
 
+  (* final emit: ret *)
+
   iModIntro. wp_pures. wp_bind (Emit _).
   iInv N' as ">HI" "Hclose".
   iDestruct "HI" as (s') "(HHa & Hγa & HI)".
-  iDestruct "HI" as (β') "(% & % & Ht)".
+  iDestruct "HI" as (β'' M) "(% & % & % & Ht & Hγta & Hγtf' & Hdom_res & Hres)".
+  iDestruct "Hdom_res" as %Hdom_res.
   iApply (wp_emit with "Ht"). iIntros "!> Ht".
-  iMod ("Hclose" with "[HHa Hγa Ht]").
+
+  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Hres") as %?.
+    by rewrite lookup_insert //.
+
+  iAssert (⌜filter (λ v, check_tag tag v) β'' = [(#tag, (#"call", y))%V; (#tag, (#"lin", (y, r s y)))%V]⌝)%I
+    as %Hprevtag'.
+  { iDestruct (big_sepM_lookup _ _ tag with "Hres") as (? ? ?) "(Hts & Hres)". by eauto.
+    simplify_eq. iDestruct (excl_auth_eq with "Hgtsf Hts") as %<-. eauto. }
+
+  iDestruct (emit_state_res_lin_to_ret with "[$Hgtsf $Hres]") as ">[Hgtsf Hres]".
+    done.
+
+  iMod ("Hclose" with "[HHa Hγa Ht Hγta Hγtf' Hres]").
   { iNext. iExists _. unfold trace_inv at 2. iFrame.
-    iExists (β' ++ [(#tag, (#"ret", (y, r s y)))%V]).
-    rewrite filter_app. iFrame. iPureIntro. split.
-    { by constructor. }
-    { by constructor; eauto. } }
+    iExists (β'' ++ [(#tag, (#"ret", (y, r s y)))%V]), M.
+    rewrite filter_app. iFrame.
+    iSplitR. iPureIntro; by constructor.
+    iSplitR. by iPureIntro; constructor; eauto.
+    iSplitR. iPureIntro; apply per_tag_linearized_add_ret; eauto.
+    iPureIntro. rewrite tags_app /= list_to_set_app_L Hdom_res. simpl.
+    rewrite -Hdom_res. unshelve eapply @elem_of_dom_2 with (D:=gset string) in H14.
+    all: try typeclasses eauto. set_solver. }
 
   iModIntro. wp_pures. eauto.
 Qed.
