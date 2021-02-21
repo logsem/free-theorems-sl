@@ -30,29 +30,28 @@ Proof.
   iFrame. iApply (Hwp (HeapG _ _ _ _ _)).
 Qed.
 
-(* Definition heap_invariance Σ `{!heapPreG Σ} (N: namespace) (I: list val → Prop) s e σ : *)
-(*   I (trace σ) → *)
-(*   (∀ `{!heapG Σ}, ⊢ trace_inv N I -∗ trace_is (trace σ) -∗ WP e @ s; ⊤ {{ _, True }}) → *)
-(*   ∀ σ' t, *)
-(*     rtc erased_step ([e], σ) (t, σ') → *)
-(*     I (trace σ'). *)
-(* Proof. *)
-(*   intros HI Hwp σ' t. *)
-(*   eapply (wp_invariance Σ _ s _ _ _ _ (I (trace σ'))). iIntros (Hinv κs) "". *)
-(*   iMod (gen_heap_init σ.(heap)) as (?) "Hh". *)
-(*   iMod (proph_map_init κs σ.(used_proph_id)) as (?) "Hp". *)
-(*   iMod (trace_auth_init σ.(trace)) as (?) "(Hta & Ht & Hth)". *)
-(*   iDestruct (inv_alloc N _ (∃ t, trace_half_frag t ∗ ⌜I t⌝) with "[Hth]") as ">#HI". *)
-(*   { iNext. eauto. } *)
-(*   iModIntro. iExists *)
-(*     (λ σ κs _, (gen_heap_ctx σ.(heap) ∗ trace_auth σ.(trace) ∗ proph_map_ctx κs σ.(used_proph_id))%I), *)
-(*     (λ _, True%I). *)
-(*   iFrame. iSplitL. *)
-(*   { iDestruct (Hwp (HeapG _ _ _ _ _)) as "Hwp". iApply ("Hwp" with "HI Ht"). } *)
-(*   iIntros "(_ & Hta & _)". iExists _. *)
-(*   iInv "HI" as ">Ht'" "_". iDestruct "Ht'" as (t') "(Ht' & %)". *)
-(*   iDestruct (trace_auth_half_frag_agree with "Hta Ht'") as %->. iModIntro. eauto. *)
-(* Qed. *)
+Definition heap_invariance Σ `{!heapPreG Σ} (N: namespace) (I: iProp Σ) (φ : list val → Prop) s e σ tp σ' :
+  (∀ `{!heapG Σ},
+    (⊢ trace_is (trace σ) ==∗ inv N I) ∧
+    (⊢ inv N I -∗ WP e @ s; ⊤ {{ _, True }}) ∧
+    (⊢ trace_auth (trace σ') -∗ ▷ I -∗ ⌜φ (trace σ')⌝)) →
+  rtc erased_step ([e], σ) (tp, σ') →
+  φ (trace σ').
+Proof.
+  intros HI.
+  eapply (wp_invariance Σ _ s _ _ _ _ (φ (trace σ'))). iIntros (Hinv κs) "".
+  iMod (gen_heap_init σ.(heap)) as (?) "Hh".
+  iMod (proph_map_init κs σ.(used_proph_id)) as (?) "Hp".
+  iMod (trace_auth_init σ.(trace)) as (?) "(Hta & Ht & Hth)".
+  set heapG := HeapG _ _ _ _ _. specialize (HI heapG) as (HIa & HIwp & HIφ).
+  iMod (HIa with "[$Ht $Hth]") as "#HI".
+  iModIntro. iExists
+    (λ σ κs _, (gen_heap_ctx σ.(heap) ∗ trace_auth σ.(trace) ∗ proph_map_ctx κs σ.(used_proph_id))%I),
+    (λ _, True%I).
+  iFrame. iSplitL. by iApply HIwp.
+  iIntros "(_ & Hta & _)". iExists _.
+  iInv "HI" as "Ht'" "_". iDestruct (HIφ with "Hta Ht'") as %?. eauto.
+Qed.
 
 (* Require Import iris.program_logic.hoare. *)
 

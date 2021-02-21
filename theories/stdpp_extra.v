@@ -13,3 +13,20 @@ Proof.
     rewrite lookup_cons_ne_0 // in H2. }
   { subst. right. split; eauto. rewrite Nat.sub_diag //=. }
 Qed.
+
+Lemma filter_is_nil {A} (P: A → Prop) `{∀ x, Decision (P x)} (l: list A) :
+  Forall (λ x, ¬ P x) l →
+  filter P l = [].
+Proof.
+  induction l; eauto. inversion 1; subst. cbn.
+  destruct (decide (P a)); auto. rewrite IHl //.
+Qed.
+
+Lemma filter_Forall_id {A} (P: A → Prop) `{∀ x, Decision (P x)} l :
+  Forall P l →
+  filter P l = l.
+Proof.
+  induction l; auto.
+  inversion 1; subst. cbn. destruct (decide (P a)).
+  by rewrite IHl //. done.
+Qed.

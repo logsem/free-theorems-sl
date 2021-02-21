@@ -4,7 +4,7 @@ From iris.base_logic.lib Require Import invariants.
 From iris.program_logic Require Import atomic.
 From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
-From intensional Require Import stdpp_extra tactics.
+From intensional Require Import stdpp_extra trace_helpers.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
@@ -15,34 +15,40 @@ Class model := {
   r : S → val → val;
 }.
 
+Record repr {Σ: gFunctors} `{model} := {
+  is_P: gname → val → iProp Σ;
+  P_content: gname → S → iProp Σ;
+  is_P_persistent : ∀ γ x, Persistent (is_P γ x);
+  P_content_timeless : ∀ γ s, Timeless (P_content γ s);
+}.
+
+Arguments repr Σ {_}.
+Hint Resolve is_P_persistent : typeclass_instances.
+Hint Resolve P_content_timeless : typeclass_instances.
+
 Section Specs.
 Context `{!heapG Σ}.
-Context `{model}.
+Context `{model} (R: repr Σ).
 Context (E: coPset).
-Context (Pinit: iProp Σ)
-        (is_P: gname → val → iProp Σ)
-        (P_content: gname → S → iProp Σ).
 
-Definition init_spec (init: val) : iProp Σ :=
-  {{{ Pinit }}} init #() {{{ γ r, RET r; is_P γ r ∗ P_content γ s_init }}}.
+Definition init_spec P0 (init: val) : iProp Σ :=
+  {{{ P0 }}} init #() {{{ γ r, RET r; is_P R γ r ∗ P_content R γ s_init }}}.
 
 Definition op_spec (op: val) : iProp Σ :=
   ∀ γ (x y: val),
-    is_P γ x -∗
-    <<< ∀ s, P_content γ s >>>
+    is_P R γ x -∗
+    <<< ∀ s, P_content R γ s >>>
       op x y @ ⊤∖E
-    <<< P_content γ (f s y), RET (r s y) >>>.
-
-Definition lib_spec (lib: val) : iProp Σ :=
-  ⌜∀ γ x, Persistent (is_P γ x)⌝ ∗
-  ⌜∀ γ s, Timeless (P_content γ s)⌝ ∗
-  ⌜∀ γ s1 s2, P_content γ s1 -∗ P_content γ s2 -∗ False⌝ ∗
-  match lib with
-  | (init, op)%V => init_spec init ∗ op_spec op
-  | _ => False
-  end.
+    <<< P_content R γ (f s y), RET (r s y) >>>.
 
 End Specs.
+
+Definition lib_spec `{!heapG Σ} `{model} (P0: iProp Σ) (E: coPset) (lib: val) : iProp Σ :=
+  ∃ (R: repr Σ),
+  match lib with
+  | (init, op)%V => init_spec R P0 init ∗ op_spec R E op
+  | _ => False
+  end.
 
 Section Trace.
 
@@ -104,12 +110,6 @@ Inductive matching_call_ret : list val → list val → Prop :=
       matching_call_ret (t ++ [(#tag, (#"ret", (v, v')))%V]) (t' ++ [(#tag, (#"ret", (v, v')))%V])
 .
 
-Definition check_tag (tag: string) (v: val) :=
-  match v with
-  | (# (LitTag tag'), _)%V => String.eqb tag tag'
-  | _ => false
-  end.
-
 Definition linearizable `{model} t :=
   ∃ t', linearization_trace t'
         ∧ (∀ tag, linearized_trace_for tag (filter (check_tag tag) t'))
@@ -117,54 +117,6 @@ Definition linearizable `{model} t :=
         ∧ ∃ s', linearized_sound t' s_init s'.
 
 End Trace.
-
-Lemma check_tag_in_tags tag v t :
-  check_tag tag v = true →
-  v ∈ t →
-  tag ∈ tags t.
-Proof.
-  revert tag v. induction t as [|v' t].
-  { intros ? ? ?. inversion 1. }
-  { intros * H1 [->|H2]%elem_of_cons. cbn.
-    { unfold check_tag in H1. repeat case_match; simplify_eq; eauto.
-      apply String.eqb_eq in H1. subst. constructor. }
-    { cbn. apply elem_of_app. right. eapply IHt; eauto. } }
-Qed.
-
-Lemma tags_app t u : tags (t ++ u) = tags t ++ tags u.
-Proof.
-  induction t as [|v t].
-  { cbn [tags]. done. }
-  { cbn. case_match. all: try rewrite IHt //. subst.
-    repeat case_match; auto. }
-Qed.
-
-Lemma fresh_tag_nocheck t tag :
-  tag ∉ tags t →
-  Forall (λ v, ¬ check_tag tag v) t.
-Proof.
-  induction t as [|v t]. done.
-  cbn. repeat case_match; eauto; simplify_eq.
-  intros [? ?]%not_elem_of_cons. apply Forall_cons. split; eauto.
-  unfold check_tag. intros Heq%Is_true_eq_true.
-  by apply String.eqb_eq in Heq as ->.
-Qed.
-
-Lemma not_check_tag_iff (tag tag':string) v :
-  ¬ check_tag tag (#tag', v)%V ↔ tag ≠ tag'.
-Proof.
-  unfold check_tag. split; intros HH1 HH2; apply HH1.
-  { subst. rewrite String.eqb_refl //. }
-  { apply Is_true_eq_true, String.eqb_eq in HH2. auto. }
-Qed.
-
-Lemma check_tag_iff (tag tag':string) v :
-  check_tag tag (#tag', v)%V = true ↔ tag = tag'.
-Proof.
-  unfold check_tag. split; intros HH.
-  { apply String.eqb_eq in HH. auto. }
-  { subst. rewrite String.eqb_refl //. }
-Qed.
 
 Definition per_tag_linearized (β: list val) :=
   ∀ tag, ∃ v v',
@@ -182,65 +134,31 @@ Proof.
   rewrite filter_app in Ht'. by apply prefix_app_l in Ht'.
 Qed.
 
-Lemma filter_is_nil {A} (P: A → Prop) `{∀ x, Decision (P x)} (l: list A) :
-  Forall (λ x, ¬ P x) l →
-  filter P l = [].
-Proof.
-  induction l; eauto. inversion 1; subst. cbn.
-  destruct (decide (P a)); auto. rewrite IHl //.
-Qed.
-
-Lemma filter_Forall_id {A} (P: A → Prop) `{∀ x, Decision (P x)} l :
-  Forall P l →
-  filter P l = l.
-Proof.
-  induction l; auto.
-  inversion 1; subst. cbn. destruct (decide (P a)).
-  by rewrite IHl //. done.
-Qed.
-
-Lemma filter_check_single_tag_neq (tag tag':string) v :
-  tag ≠ tag' →
-  filter (λ v, check_tag tag v) [(#tag', v)%V] = [].
-Proof.
-  intros. apply filter_is_nil. repeat constructor.
-  by apply not_check_tag_iff.
-Qed.
-
-Lemma filter_check_single_tag_eq (tag:string) v :
-  filter (λ v, check_tag tag v) [(#tag, v)%V] = [(#tag, v)%V].
-Proof.
-  intros. apply filter_Forall_id. repeat constructor.
-  by apply Is_true_eq_left, check_tag_iff.
-Qed.
-
 Inductive emit_state :=
   | AfterCall (v: val)
   | AfterLin (v v': val)
   | AfterRet (v v': val).
 
+(* we need extra resource algebras for our ghost state *)
+Class linG `{model} (Σ: gFunctors) := {
+  lin_model_inG :> inG Σ (excl_authR (leibnizO S));
+  lin_gnames_inG :> inG Σ (excl_authR (leibnizO (gname * gname * gname)));
+  lin_emit_state_inG :> inG Σ (excl_authR (leibnizO emit_state));
+  lin_emit_res_inG :> inG Σ (authR (gmapUR string (agreeR (leibnizO gname))));
+}.
+
 Module Wrap.
 
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ}.
+Context `{heapG Σ, model, linG Σ}.
 Context (N N': namespace) (HNN': N ## N').
-Context `{model}.
-Context `{inG Σ (excl_authR (leibnizO S))}
-        `{inG Σ (excl_authR (leibnizO (gname * gname * gname)))}
-        `{inG Σ (excl_authR (leibnizO emit_state))}
-        `{inG Σ (authR (gmapUR string (agreeR (leibnizO gname))))}.
-        (* `{inG Σ (gmapUR string (agreeR (leibnizO gname)))}. *)
 
 Local Notation SO := (leibnizO S).
 Local Notation valO := (leibnizO val).
 
-Context (Pinit_impl: iProp Σ)
-        (is_P_impl: gname → val → iProp Σ)
-        (P_content_impl: gname → S → iProp Σ).
-Context (HPP: ∀ γ x, Persistent (is_P_impl γ x)).
-Context (HPT: ∀ γ s, Timeless (P_content_impl γ s)).
-
+Context (R_impl : repr Σ).
+Context (Pinit_impl : iProp Σ).
 Context (init_impl op_impl : val).
 
 Definition init : val :=
@@ -252,9 +170,6 @@ Definition op : val :=
     let: "r" := op_impl "x" "y" in
     Emit ("t", (#"ret", ("y", "r"))) ;;
     "r".
-
-Definition Pinit : iProp Σ :=
-  Pinit_impl ∗ trace_is [].
 
 Definition is_call_return (v: val) :=
   match v with
@@ -296,7 +211,7 @@ Proof.
 Qed.
 
 Definition emit_state_res (t: list val) (m: gmap string (agree (leibnizO gname))) : iProp Σ :=
-  ([∗ map] tag↦gs ∈ m, ∃ γs tagst, ⌜gs = to_agree γs⌝ ∗ own γs (●E tagst) ∗
+  ([∗ map] tag↦gs ∈ m, ∃ γs tagst, ⌜gs = to_agree γs⌝ ∗ own γs (●E (tagst:leibnizO _)) ∗
      let elts := filter (check_tag tag) t in
      ⌜match tagst with
       | AfterCall v =>
@@ -366,24 +281,31 @@ Definition trace_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
     ⌜ dom (gset string) M = list_to_set (tags (filter is_call_return β)) ⌝ ∗
     emit_state_res β M.
 
-Definition is_P γ x : iProp Σ :=
+Definition is_P_wrap γ x : iProp Σ :=
   ∃ γi γw γt,
-    is_P_impl γi x ∗
+    is_P R_impl γi x ∗
     inv N' (∃ s, trace_inv γ γi γw γt s).
 
-Definition P_content γ s : iProp Σ :=
+Definition P_content_wrap γ s : iProp Σ :=
   ∃ γi γw γt,
-    P_content_impl γi s ∗
+    P_content R_impl γi s ∗
     own γw (◯E (s:SO)) ∗
     own γ (◯E ((γi, γw, γt) : leibnizO (gname * gname * gname))).
 
+Definition Pinit : iProp Σ :=
+    Pinit_impl ∗ trace_is [].
+
+Definition R : repr Σ := Build_repr _ _ is_P_wrap P_content_wrap _ _.
+
 Lemma init_correct :
-  init_spec Pinit_impl is_P_impl P_content_impl init_impl -∗
-  init_spec Pinit is_P P_content init.
+  init_spec R_impl Pinit_impl init_impl -∗
+  init_spec R Pinit init.
 Proof.
   iIntros "#spec" (φ) "!> (Hi & Ht) Hφ". unfold init.
   iMod (excl_auth_alloc _ s_init) as (γw) "(Hwf & Hwa)".
-  iMod (own_alloc (● ∅ ⋅ ◯ ∅)) as (γt) "(Htksa & Htksf)".
+  iMod (own_alloc (● (∅:gmap string (agree (leibnizO gname))) ⋅
+                   ◯ (∅:gmap string (agree (leibnizO gname)))))
+    as (γt) "(Htksa & Htksf)".
     apply auth_both_valid_2; done.
   wp_pures. wp_bind (init_impl _).
   iApply ("spec" with "Hi"). iIntros "!>" (γi x) "(HH1 & HH2)".
@@ -496,9 +418,9 @@ Proof.
 Qed.
 
 Lemma op_correct :
-  op_spec (↑N) is_P_impl P_content_impl op_impl -∗
-  op_spec (↑N ∪ ↑N') is_P P_content op.
-Proof using HPT HPP HNN'.
+  op_spec R_impl (↑N) op_impl -∗
+  op_spec R (↑N ∪ ↑N') op.
+Proof using HNN'.
   iIntros "spec" (γ x y) "His".
   iDestruct "His" as (γi γw γt) "(#HPimpl & #?)".
   iIntros (φ) "HAU".
@@ -607,7 +529,7 @@ Proof using HPT HPP HNN'.
   iDestruct "Hdom_res" as %Hdom_res.
   iApply (wp_emit with "Ht"). iIntros "!> Ht".
 
-  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Hres") as %?.
+  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Hres") as %HMtag.
     by rewrite lookup_insert //.
 
   iAssert (⌜filter (λ v, check_tag tag v) β'' = [(#tag, (#"call", y))%V; (#tag, (#"lin", (y, r s y)))%V]⌝)%I
@@ -626,9 +548,57 @@ Proof using HPT HPP HNN'.
     iSplitR. by iPureIntro; constructor; eauto.
     iSplitR. iPureIntro; apply per_tag_linearized_add_ret; eauto.
     iPureIntro. rewrite tags_app /= list_to_set_app_L Hdom_res. simpl.
-    rewrite -Hdom_res. unshelve eapply @elem_of_dom_2 with (D:=gset string) in H14.
+    rewrite -Hdom_res. unshelve eapply @elem_of_dom_2 with (D:=gset string) in HMtag.
     all: try typeclasses eauto. set_solver. }
 
   iModIntro. wp_pures. eauto.
 Qed.
 
+End S.
+
+Definition lib (lib_impl: val): val :=
+  match lib_impl with
+  | (init_impl, op_impl)%V =>
+    (init init_impl, op op_impl)
+  | _ => #()
+  end.
+
+Lemma correct `{heapG Σ, model, linG Σ} (N N': namespace) P0 (lib_impl: val) :
+  N ## N' →
+  lib_spec P0 (↑N) lib_impl -∗
+  lib_spec (P0 ∗ trace_is []) (↑N ∪ ↑N') (lib lib_impl).
+Proof.
+  iIntros (HNN') "S". iDestruct "S" as (R_impl) "S".
+  repeat case_match; eauto. iDestruct "S" as "(Hinit & Hop)".
+  unfold lib_spec. iExists (Wrap.R N' R_impl). iSplit.
+  iApply init_correct; eauto.
+  iApply op_correct; eauto.
+Qed.
+
+End Wrap.
+
+
+Definition libN := nroot .@ "lib".
+Definition wrapN := nroot .@ "wrap".
+Definition empty_state : state := Build_state ∅ [] ∅.
+
+Lemma wrap_lib_correct {Σ} `{heapPreG Σ, model, linG Σ} (e: val → expr) (lib: val):
+  (⊢ ∀ `{heapG Σ}, lib_spec True (↑libN) lib) →
+  (⊢ ∀ `{heapG Σ} P E lib, lib_spec P E lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  ∀ σ' e',
+    rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
+    linearizable (trace σ').
+Proof.
+  intros Hlib Hctx σ' e' Hsteps.
+(*   eapply (@heap_invariance Σ _ wrapN *)
+
+
+(*   eapply (@module_invariance Σ _ stacklibN (@stacklib_spec Σ) True e #() (Wrap.lib lib) *)
+(*                             good_stack_trace empty_state). *)
+(*   { cbn. apply good_stack_trace_nil. } *)
+(*   { iIntros (? ? ?) "?". by iApply Hctx. } *)
+(*   { iIntros (? _) "!>". iApply wp_value; eauto. } *)
+(*   { iIntros (?). iApply Wrap.correct. iApply Hlib. } *)
+(*   eauto. *)
+(* Qed. *)
+Admitted.

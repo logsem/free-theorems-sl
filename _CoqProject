@@ -17,6 +17,7 @@ theories/heap_lang/adequacy.v
 
 theories/stdpp_extra.v
 theories/tactics.v
+theories/trace_helpers.v
 theories/stack.v
 theories/traversable_stack.v
 theories/stack_impl.v
