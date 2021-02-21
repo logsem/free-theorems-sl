@@ -188,15 +188,6 @@ Definition op : val :=
     Emit ("t", (#"ret", ("y", "r"))) ;;
     "r".
 
-(* Notation "⋄" := (Excl (tt:leibnizO _)). *)
-(* Notation "⋄" := (Excl tt) (only printing). *)
-
-(* Lemma token_both_false γ : own γ ⋄ -∗ own γ ⋄ -∗ False. *)
-(* Proof. *)
-(*   iIntros "H1 H2". iDestruct (own_op with "[$H1 $H2]") as "H". *)
-(*   iDestruct (own_valid with "H") as %valid. done. *)
-(* Qed. *)
-
 Definition mainN := N' .@ "main".
 Definition traceN := N' .@ "trace".
 
