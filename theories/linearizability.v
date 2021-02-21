@@ -43,7 +43,7 @@ Definition op_spec (op: val) : iProp Σ :=
 
 End Specs.
 
-Definition lib_spec `{!heapG Σ} `{model} (P0: iProp Σ) (E: coPset) (lib: val) : iProp Σ :=
+Definition lib_spec `{model} (E: coPset) `{!heapG Σ} (P0: iProp Σ) (lib: val) : iProp Σ :=
   ∃ (R: repr Σ),
   match lib with
   | (init, op)%V => init_spec R P0 init ∗ op_spec R E op
@@ -62,6 +62,28 @@ Section Trace.
 (*       concurrent_trace t → *)
 (*       concurrent_trace (t ++ [(#tag, (#"ret", (v, v')))%V]). *)
 
+(* Inductive linearized_trace_for (tag: string) : list val → Prop := *)
+(*   | linearized_trace_for_nil : *)
+(*       linearized_trace_for tag [] *)
+(*   | linearized_trace_for_call t (v v': val) : *)
+(*       linearized_trace_for tag t → *)
+(*       linearized_trace_for tag (t ++ [(#tag, (#"call", v)); (#tag, (#"lin", (v, v'))); (#tag, (#"ret", (v, v')))]%V). *)
+
+
+(* Inductive matching_call_ret : list val → list val → Prop := *)
+(*   | matching_call_ret_nil t' : *)
+(*       matching_call_ret [] [] *)
+(*   | matching_call_ret_lin t t' (tag: string) v v': *)
+(*       matching_call_ret t t' → *)
+(*       matching_call_ret t (t' ++ [(#tag, (#"lin", (v, v')))%V]) *)
+(*   | matching_call_ret_call t t' (tag: string) v : *)
+(*       matching_call_ret t t' → *)
+(*       matching_call_ret (t ++ [(#tag, (#"call", v))%V]) (t' ++ [(#tag, (#"call", v))%V]) *)
+(*   | matching_call_ret_ret t t' (tag: string) v v' : *)
+(*       matching_call_ret t t' → *)
+(*       matching_call_ret (t ++ [(#tag, (#"ret", (v, v')))%V]) (t' ++ [(#tag, (#"ret", (v, v')))%V]) *)
+(* . *)
+
 Inductive linearization_trace : list val → Prop :=
   | linearization_trace_nil :
       linearization_trace []
@@ -75,54 +97,49 @@ Inductive linearization_trace : list val → Prop :=
       linearization_trace t →
       linearization_trace (t ++ [(#tag, (#"ret", (v, v')))%V]).
 
-Inductive linearized_trace_for (tag: string) : list val → Prop :=
-  | linearized_trace_for_nil :
-      linearized_trace_for tag []
-  | linearized_trace_for_call t (v v': val) :
-      linearized_trace_for tag t →
-      linearized_trace_for tag (t ++ [(#tag, (#"call", v)); (#tag, (#"lin", (v, v'))); (#tag, (#"ret", (v, v')))]%V).
-
+(* whether lin events are sound wrt the model *)
 Inductive linearized_sound `{model} : list val → S → S → Prop :=
-  (* administrative steps. calls and rets are ignored. *)
   | linearized_sound_nil s :
       linearized_sound [] s s
-  | linearized_sound_call_ret s0 s (tag op: string) arg t :
-      linearized_sound t s0 s →
-      op = "call" ∨ op = "ret" →
-      linearized_sound (t ++ [(#tag, (#op, arg))%V]) s0 s
-  (* lin events must be sound wrt the model *)
   | linearized_sound_lin s0 s (tag:string) v v' t :
       linearized_sound t s0 s →
       v' = r s v →
       linearized_sound (t ++ [(#tag, (#"lin", (v, v')))%V]) s0 (f s v).
 
-Inductive matching_call_ret : list val → list val → Prop :=
-  | matching_call_ret_nil t' :
-      matching_call_ret [] t'
-  | matching_call_ret_lin t t' (tag: string) v v':
-      matching_call_ret t t' →
-      matching_call_ret t (t' ++ [(#tag, (#"lin", (v, v')))%V])
-  | matching_call_ret_call t t' (tag: string) v :
-      matching_call_ret t t' →
-      matching_call_ret (t ++ [(#tag, (#"call", v))%V]) (t' ++ [(#tag, (#"call", v))%V])
-  | matching_call_ret_ret t t' (tag: string) v v' :
-      matching_call_ret t t' →
-      matching_call_ret (t ++ [(#tag, (#"ret", (v, v')))%V]) (t' ++ [(#tag, (#"ret", (v, v')))%V])
-.
+Definition per_tag_linearized (t: list val) :=
+  ∀ tag, ∃ v v',
+        filter (check_tag tag) t
+          `prefix_of`
+        [(#tag, (#"call", v))%V; (#tag, (#"lin", (v, v')))%V; (#tag, (#"ret", (v, v')))%V].
+
+Definition is_call_return (v: val) :=
+  match v with
+  | (#_, (#"call", _))%V | (#_, (#"ret", _))%V => true
+  | _ => false
+  end.
+
+Definition is_lin (v: val) :=
+  match v with
+  | (#_, (#"lin", _))%V => true
+  | _ => false
+  end.
 
 Definition linearizable `{model} t :=
   ∃ t', linearization_trace t'
-        ∧ (∀ tag, linearized_trace_for tag (filter (check_tag tag) t'))
-        ∧ matching_call_ret t t'
-        ∧ ∃ s', linearized_sound t' s_init s'.
+        ∧ per_tag_linearized t'
+        ∧ t = filter is_call_return t'
+        ∧ ∃ s', linearized_sound (filter is_lin t') s_init s'.
+
+Lemma linearizable_nil `{model}: linearizable [].
+Proof.
+  exists []. split_and!.
+  { constructor. }
+  { intros. exists #(), #(). apply prefix_nil. }
+  { reflexivity. }
+  { exists s_init. constructor. }
+Qed.
 
 End Trace.
-
-Definition per_tag_linearized (β: list val) :=
-  ∀ tag, ∃ v v',
-        filter (check_tag tag) β
-          `prefix_of`
-        [(#tag, (#"call", v))%V; (#tag, (#"lin", (v, v')))%V; (#tag, (#"ret", (v, v')))%V].
 
 Lemma per_tag_linearized_prefix t t' :
   per_tag_linearized t' →
@@ -171,12 +188,6 @@ Definition op : val :=
     Emit ("t", (#"ret", ("y", "r"))) ;;
     "r".
 
-Definition is_call_return (v: val) :=
-  match v with
-  | (#_, (#"call", _))%V | (#_, (#"ret", _))%V => true
-  | _ => false
-  end.
-
 (* Notation "⋄" := (Excl (tt:leibnizO _)). *)
 (* Notation "⋄" := (Excl tt) (only printing). *)
 
@@ -185,6 +196,9 @@ Definition is_call_return (v: val) :=
 (*   iIntros "H1 H2". iDestruct (own_op with "[$H1 $H2]") as "H". *)
 (*   iDestruct (own_valid with "H") as %valid. done. *)
 (* Qed. *)
+
+Definition mainN := N' .@ "main".
+Definition traceN := N' .@ "trace".
 
 Lemma excl_auth_eq A `{inG Σ (excl_authR (leibnizO A))} γ (x y: A):
   own γ (◯E (x:leibnizO A)) -∗ own γ (●E (y:leibnizO A)) -∗ ⌜x = y⌝.
@@ -268,15 +282,14 @@ Proof.
     rewrite filter_app filter_check_single_tag_neq // app_nil_r //. }
 Qed.
 
-Definition trace_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
+Definition main_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
   own γw (●E (s:SO)) ∗
   own γ (●E ((γi, γw, γt) : leibnizO (gname * gname * gname))) ∗
   ∃ (β: list val) (M: gmap string (agree (leibnizO gname))),
     ⌜linearization_trace β⌝ ∗
-    ⌜linearized_sound β s_init s⌝ ∗
+    ⌜linearized_sound (filter is_lin β) s_init s⌝ ∗
     ⌜per_tag_linearized β⌝ ∗
     trace_is (filter is_call_return β) ∗
-
     own γt (● M) ∗ own γt (◯ M) ∗
     ⌜ dom (gset string) M = list_to_set (tags (filter is_call_return β)) ⌝ ∗
     emit_state_res β M.
@@ -284,7 +297,8 @@ Definition trace_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
 Definition is_P_wrap γ x : iProp Σ :=
   ∃ γi γw γt,
     is_P R_impl γi x ∗
-    inv N' (∃ s, trace_inv γ γi γw γt s).
+    inv mainN (∃ s, main_inv γ γi γw γt s) ∗
+    trace_inv traceN linearizable.
 
 Definition P_content_wrap γ s : iProp Σ :=
   ∃ γi γw γt,
@@ -293,7 +307,7 @@ Definition P_content_wrap γ s : iProp Σ :=
     own γ (◯E ((γi, γw, γt) : leibnizO (gname * gname * gname))).
 
 Definition Pinit : iProp Σ :=
-    Pinit_impl ∗ trace_is [].
+    Pinit_impl ∗ trace_is [] ∗ trace_inv traceN linearizable.
 
 Definition R : repr Σ := Build_repr _ _ is_P_wrap P_content_wrap _ _.
 
@@ -301,7 +315,7 @@ Lemma init_correct :
   init_spec R_impl Pinit_impl init_impl -∗
   init_spec R Pinit init.
 Proof.
-  iIntros "#spec" (φ) "!> (Hi & Ht) Hφ". unfold init.
+  iIntros "#spec" (φ) "!> (Hi & Ht & HT) Hφ". unfold init.
   iMod (excl_auth_alloc _ s_init) as (γw) "(Hwf & Hwa)".
   iMod (own_alloc (● (∅:gmap string (agree (leibnizO gname))) ⋅
                    ◯ (∅:gmap string (agree (leibnizO gname)))))
@@ -310,7 +324,7 @@ Proof.
   wp_pures. wp_bind (init_impl _).
   iApply ("spec" with "Hi"). iIntros "!>" (γi x) "(HH1 & HH2)".
   iMod (excl_auth_alloc _ (γi, γw, γt)) as (γ) "(Hf & Ha)".
-  iMod (inv_alloc N' _ (∃ s, trace_inv γ γi γw γt s)%I with "[Ht Ha Hwa Htksa Htksf]")
+  iMod (inv_alloc mainN _ (∃ s, main_inv γ γi γw γt s)%I with "[Ht Ha Hwa Htksa Htksf]")
     as "HI".
   { iNext. iExists s_init. iFrame. iExists [], ∅. iFrame.
     rewrite /emit_state_res big_sepM_empty /=.
@@ -318,7 +332,7 @@ Proof.
     { intros. exists #(), #(). apply prefix_nil. }
     by rewrite dom_empty_L //. }
   wp_pures. iApply "Hφ".
-  iSplitL "HH1 HI". { iExists γi, γw, γt. iFrame. }
+  iSplitL "HH1 HI HT". { iExists γi, γw, γt. iFrame. }
   iExists γi, γw, γt. iFrame.
 Qed.
 
@@ -419,20 +433,29 @@ Qed.
 
 Lemma op_correct :
   op_spec R_impl (↑N) op_impl -∗
-  op_spec R (↑N ∪ ↑N') op.
+  op_spec R (↑N ∪ ↑mainN) op.
 Proof using HNN'.
   iIntros "spec" (γ x y) "His".
-  iDestruct "His" as (γi γw γt) "(#HPimpl & #?)".
+  iDestruct "His" as (γi γw γt) "(#HPimpl & #? & #HT)".
   iIntros (φ) "HAU".
 
   (* first emit: call *)
 
   unfold op. wp_pures. wp_bind (Fresh _). unfold op_spec.
-  iInv N' as ">Ht" "Hclose".
+  iInv mainN as ">Ht" "Hclose".
   iDestruct "Ht" as (s) "(Hγw & Hγ & Ht)".
   iDestruct "Ht" as (β tokens) "(% & % & Htlin & Ht & Hγta & Hγtf & Htoks_dom & Htoks)".
   iDestruct "Htoks_dom" as %Htoks_dom. iDestruct "Htlin" as %Htlin.
-  iApply (wp_fresh with "Ht"). iNext. iIntros (tag) "(Ht & Hfresh)".
+  iApply (wp_fresh with "[$Ht $HT]"). solve_ndisj.
+  { intros tag Htag. unfold linearizable. exists (β ++ [(#tag, (#"call", y))%V]).
+    unshelve epose proof (linearization_fresh_tag_call_ret _ _ _ _ Htag)
+        as Hfresh; eauto; []. split_and!.
+    by constructor; eauto.
+    by apply per_tag_linearized_add_call; eauto.
+    by rewrite filter_app.
+    by eexists; rewrite filter_app app_nil_r //. }
+
+  iNext. iIntros (tag) "(Ht & Hfresh)".
   iDestruct "Hfresh" as %Hfresh.
   unshelve epose proof (linearization_fresh_tag_call_ret _ _ _ _ Hfresh)
     as Hfresh'; eauto; [].
@@ -447,10 +470,10 @@ Proof using HNN'.
   { iSplit; iFrame. }
 
   iMod ("Hclose" with "[Ht Hγw Hγ Hγta Hγtf Htoks Hgtsa]") as "_".
-  { iNext. iExists s. unfold trace_inv at 2. iFrame.
+  { iNext. iExists s. unfold main_inv at 2. iFrame.
     iExists (β ++ [(#tag, (#"call", y))%V]), tokens'.
     iSplitR. iPureIntro; by constructor.
-    iSplitR. iPureIntro; by constructor; eauto.
+    iSplitR. iPureIntro; by rewrite filter_app app_nil_r //.
     iSplitR. iPureIntro; by apply per_tag_linearized_add_call.
     iSplitL "Ht". by rewrite filter_app /=.
     iFrame "Hγta Hγtf".
@@ -477,7 +500,7 @@ Proof using HNN'.
   awp_apply "spec".
 
   rewrite /atomic_acc /=.
-  iInv N' as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
+  iInv mainN as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
   iMod "HAU" as (s') "(HH & Hnext)". by set_solver.
   iDestruct "HH" as (γi' γw' γt') "(HHi & HHf & Hγf)".
   iDestruct "HI" as "(HHa & Hγa & HI)".
@@ -512,22 +535,21 @@ Proof using HNN'.
     done.
 
   iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa Hγta Hγtf' Htoks]") as "_".
-  { iNext. iExists _. unfold trace_inv at 2. iFrame.
+  { iNext. iExists _. unfold main_inv at 2. iFrame.
     iExists (β' ++ [(#tag, (#"lin", (y, r s y)))%V]), tokens''.
-    rewrite filter_app app_nil_r. iFrame.
+    iFrame.
     iSplitR. iPureIntro; by constructor.
-    iSplitR. iPureIntro; by eapply linearized_sound_lin.
+    iSplitR. iPureIntro; by rewrite filter_app; eapply linearized_sound_lin.
     iSplitR. iPureIntro; by apply per_tag_linearized_add_lin.
-    done. }
+    rewrite filter_app app_nil_r. iFrame. done. }
 
   (* final emit: ret *)
 
   iModIntro. wp_pures. wp_bind (Emit _).
-  iInv N' as ">HI" "Hclose".
+  iInv mainN as ">HI" "Hclose".
   iDestruct "HI" as (s') "(HHa & Hγa & HI)".
   iDestruct "HI" as (β'' M) "(% & % & % & Ht & Hγta & Hγtf' & Hdom_res & Hres)".
   iDestruct "Hdom_res" as %Hdom_res.
-  iApply (wp_emit with "Ht"). iIntros "!> Ht".
 
   iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Hres") as %HMtag.
     by rewrite lookup_insert //.
@@ -537,17 +559,27 @@ Proof using HNN'.
   { iDestruct (big_sepM_lookup _ _ tag with "Hres") as (? ? ?) "(Hts & Hres)". by eauto.
     simplify_eq. iDestruct (excl_auth_eq with "Hgtsf Hts") as %<-. eauto. }
 
+  iApply (wp_emit with "[$Ht $HT]"). solve_ndisj.
+  { unfold linearizable. exists (β'' ++ [(#tag, (#"ret", (y, r s y)))%V]).
+    split_and!.
+    by constructor.
+    by apply per_tag_linearized_add_ret; eauto.
+    by rewrite filter_app.
+    by eexists; rewrite filter_app app_nil_r. }
+
+  iIntros "!> Ht".
   iDestruct (emit_state_res_lin_to_ret with "[$Hgtsf $Hres]") as ">[Hgtsf Hres]".
     done.
 
   iMod ("Hclose" with "[HHa Hγa Ht Hγta Hγtf' Hres]").
-  { iNext. iExists _. unfold trace_inv at 2. iFrame.
+  { iNext. iExists _. unfold main_inv at 2. iFrame.
     iExists (β'' ++ [(#tag, (#"ret", (y, r s y)))%V]), M.
-    rewrite filter_app. iFrame.
+    rewrite filter_app app_nil_r. iFrame.
     iSplitR. iPureIntro; by constructor.
-    iSplitR. by iPureIntro; constructor; eauto.
-    iSplitR. iPureIntro; apply per_tag_linearized_add_ret; eauto.
-    iPureIntro. rewrite tags_app /= list_to_set_app_L Hdom_res. simpl.
+    iSplitR. by iPureIntro; eauto.
+    iSplitR. by iPureIntro; apply per_tag_linearized_add_ret; eauto.
+    iSplitL "Ht". by rewrite filter_app.
+    iPureIntro. rewrite filter_app tags_app /= list_to_set_app_L Hdom_res. simpl.
     rewrite -Hdom_res. unshelve eapply @elem_of_dom_2 with (D:=gset string) in HMtag.
     all: try typeclasses eauto. set_solver. }
 
@@ -565,8 +597,8 @@ Definition lib (lib_impl: val): val :=
 
 Lemma correct `{heapG Σ, model, linG Σ} (N N': namespace) P0 (lib_impl: val) :
   N ## N' →
-  lib_spec P0 (↑N) lib_impl -∗
-  lib_spec (P0 ∗ trace_is []) (↑N ∪ ↑N') (lib lib_impl).
+  lib_spec (↑N) P0 lib_impl -∗
+  lib_spec (↑N ∪ ↑(N'.@"main")) (P0 ∗ trace_is [] ∗ trace_inv (N'.@"trace") linearizable) (lib lib_impl).
 Proof.
   iIntros (HNN') "S". iDestruct "S" as (R_impl) "S".
   repeat case_match; eauto. iDestruct "S" as "(Hinit & Hop)".
@@ -577,28 +609,23 @@ Qed.
 
 End Wrap.
 
-
 Definition libN := nroot .@ "lib".
 Definition wrapN := nroot .@ "wrap".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_lib_correct {Σ} `{heapPreG Σ, model, linG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, lib_spec True (↑libN) lib) →
-  (⊢ ∀ `{heapG Σ} P E lib, lib_spec P E lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `{heapG Σ}, lib_spec (↑libN) True lib) →
+  (⊢ ∀ `{heapG Σ} P E lib, lib_spec E P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     linearizable (trace σ').
 Proof.
   intros Hlib Hctx σ' e' Hsteps.
-(*   eapply (@heap_invariance Σ _ wrapN *)
-
-
-(*   eapply (@module_invariance Σ _ stacklibN (@stacklib_spec Σ) True e #() (Wrap.lib lib) *)
-(*                             good_stack_trace empty_state). *)
-(*   { cbn. apply good_stack_trace_nil. } *)
-(*   { iIntros (? ? ?) "?". by iApply Hctx. } *)
-(*   { iIntros (? _) "!>". iApply wp_value; eauto. } *)
-(*   { iIntros (?). iApply Wrap.correct. iApply Hlib. } *)
-(*   eauto. *)
-(* Qed. *)
-Admitted.
+  eapply (@module_invariance Σ _ (wrapN.@"trace") (@lib_spec _ (↑libN ∪ ↑(wrapN.@"main")) Σ) True e #() (Wrap.lib lib)
+                            linearizable empty_state).
+  { cbn. apply linearizable_nil. }
+  { iIntros (? ? ?) "?". by iApply Hctx. }
+  { iIntros (? _) "!>". iApply wp_value; eauto. }
+  { iIntros (?). iApply Wrap.correct. solve_ndisj. iApply Hlib. }
+  eauto.
+Qed.
