@@ -16,6 +16,7 @@ theories/heap_lang/proofmode.v
 theories/heap_lang/adequacy.v
 
 theories/stdpp_extra.v
+theories/iris_extra.v
 theories/tactics.v
 theories/trace_helpers.v
 theories/stack.v
