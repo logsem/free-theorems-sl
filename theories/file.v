@@ -55,11 +55,6 @@ Lemma isopen_open' t n e :
   isopen (t ++ [e]) n.
 Proof. unfold isopen, noclose. go*. Qed.
 
-Lemma file_trace_open t :
-  file_trace t →
-  file_trace (t ++ [(#"open", #())%V]).
-Proof. unfold file_trace. intros. apply isopen_open. go. Qed.
-
 Lemma noclose_open_last t :
   noclose (t ++ [(#"open", #())%V]) (length t) (length t + 1).
 Proof. unfold noclose. go. Qed.
@@ -82,6 +77,11 @@ Lemma isopen_read_last t v :
 Proof.
   intros [m ?]. go. exists m. split_and!; go. by apply noclose_read_last.
 Qed.
+
+Lemma file_trace_open t :
+  file_trace t →
+  file_trace (t ++ [(#"open", #())%V]).
+Proof. unfold file_trace. intros. apply isopen_open. go. Qed.
 
 Lemma file_trace_close t :
   isopen t (length t) →

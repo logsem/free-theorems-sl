@@ -19,12 +19,10 @@ Record repr {Σ: gFunctors} `{model} := {
   is_P: gname → val → iProp Σ;
   P_content: gname → S → iProp Σ;
   is_P_persistent : ∀ γ x, Persistent (is_P γ x);
-  P_content_timeless : ∀ γ s, Timeless (P_content γ s);
 }.
 
 Arguments repr Σ {_}.
 Hint Resolve is_P_persistent : typeclass_instances.
-Hint Resolve P_content_timeless : typeclass_instances.
 
 Section Specs.
 Context `{!heapG Σ}.
@@ -35,9 +33,9 @@ Definition init_spec P0 (init: val) : iProp Σ :=
   {{{ P0 }}} init #() {{{ γ r, RET r; is_P R γ r ∗ P_content R γ s_init }}}.
 
 Definition op_spec (op: val) : iProp Σ :=
-  ∀ γ (x y: val),
+  ∀ γ (x y: val) s,
     is_P R γ x -∗
-    <<< ∀ s, P_content R γ s >>>
+    <<< P_content R γ s >>>
       op x y @ ⊤∖E
     <<< P_content R γ (f s y), RET (r s y) >>>.
 
@@ -312,49 +310,49 @@ Proof.
   apply leibniz_equiv in Hsub. simplify_eq. done.
 Qed.
 
-Definition main_inv (γ γi γw γt: gname) (s: S) : iProp Σ :=
-  own γw (●E (s:SO)) ∗
-  own γ (●E ((γi, γw, γt) : leibnizO (gname * gname * gname))) ∗
+Definition main_inv (γ γi γs γe: gname) (s: S) : iProp Σ :=
+  own γs (●E (s:SO)) ∗
+  own γ (●E ((γi, γs, γe) : leibnizO (gname * gname * gname))) ∗
   ∃ (β: list val) (M: gmap string (agree (leibnizO gname))),
     ⌜linearization_trace β⌝ ∗
     ⌜linearized_sound (filter is_lin β) s_init s⌝ ∗
     ⌜per_tag_linearized β⌝ ∗
     trace_is (filter is_call_return β) ∗
-    own γt (● M) ∗ own γt (◯ M) ∗
+    own γe (● M) ∗ own γe (◯ M) ∗
     ⌜ dom (gset string) M = list_to_set (tags (filter is_call_return β)) ⌝ ∗
     emit_state_res β M.
 
 Definition is_P_wrap γ x : iProp Σ :=
-  ∃ γi γw γt,
+  ∃ γi γs γe,
     is_P R_impl γi x ∗
-    inv mainN (∃ s, main_inv γ γi γw γt s) ∗
+    inv mainN (∃ s, main_inv γ γi γs γe s) ∗
     trace_inv traceN linearizable.
 
 Definition P_content_wrap γ s : iProp Σ :=
-  ∃ γi γw γt,
+  ∃ γi γs γe,
     P_content R_impl γi s ∗
-    own γw (◯E (s:SO)) ∗
-    own γ (◯E ((γi, γw, γt) : leibnizO (gname * gname * gname))).
+    own γs (◯E (s:SO)) ∗
+    own γ (◯E ((γi, γs, γe) : leibnizO (gname * gname * gname))).
 
 Definition Pinit : iProp Σ :=
     Pinit_impl ∗ trace_is [] ∗ trace_inv traceN linearizable.
 
-Definition R : repr Σ := Build_repr _ _ is_P_wrap P_content_wrap _ _.
+Definition R : repr Σ := Build_repr _ _ is_P_wrap P_content_wrap _.
 
 Lemma init_correct :
   init_spec R_impl Pinit_impl init_impl -∗
   init_spec R Pinit init.
 Proof.
   iIntros "#spec" (φ) "!> (Hi & Ht & HT) Hφ". unfold init.
-  iMod (excl_auth_alloc _ s_init) as (γw) "(Hwf & Hwa)".
+  iMod (excl_auth_alloc _ s_init) as (γs) "(Hwf & Hwa)".
   iMod (own_alloc (● (∅:gmap string (agree (leibnizO gname))) ⋅
                    ◯ (∅:gmap string (agree (leibnizO gname)))))
-    as (γt) "(Htksa & Htksf)".
+    as (γe) "(Htksa & Htksf)".
     apply auth_both_valid_2; done.
   wp_pures. wp_bind (init_impl _).
   iApply ("spec" with "Hi"). iIntros "!>" (γi x) "(HH1 & HH2)".
-  iMod (excl_auth_alloc _ (γi, γw, γt)) as (γ) "(Hf & Ha)".
-  iMod (inv_alloc mainN _ (∃ s, main_inv γ γi γw γt s)%I with "[Ht Ha Hwa Htksa Htksf]")
+  iMod (excl_auth_alloc _ (γi, γs, γe)) as (γ) "(Hf & Ha)".
+  iMod (inv_alloc mainN _ (∃ s, main_inv γ γi γs γe s)%I with "[Ht Ha Hwa Htksa Htksf]")
     as "HI".
   { iNext. iExists s_init. iFrame. iExists [], ∅. iFrame.
     rewrite /emit_state_res big_sepM_empty /=.
@@ -362,24 +360,24 @@ Proof.
     { intros. exists #(), #(). apply prefix_nil. }
     by rewrite dom_empty_L //. }
   wp_pures. iApply "Hφ".
-  iSplitL "HH1 HI HT". { iExists γi, γw, γt. iFrame. }
-  iExists γi, γw, γt. iFrame.
+  iSplitL "HH1 HI HT". { iExists γi, γs, γe. iFrame. }
+  iExists γi, γs, γe. iFrame.
 Qed.
 
 Lemma op_correct :
   op_spec R_impl (↑N) op_impl -∗
   op_spec R (↑N ∪ ↑mainN) op.
 Proof using HNN'.
-  iIntros "spec" (γ x y) "His".
-  iDestruct "His" as (γi γw γt) "(#HPimpl & #? & #HT)".
+  iIntros "spec" (γ x y _s) "His".
+  iDestruct "His" as (γi γs γe) "(#HPimpl & #? & #HT)".
   iIntros (φ) "HAU".
 
   (* first emit: call *)
 
   unfold op. wp_pures. wp_bind (Fresh _). unfold op_spec.
   iInv mainN as ">Ht" "Hclose".
-  iDestruct "Ht" as (s) "(Hγw & Hγ & Ht)".
-  iDestruct "Ht" as (β tokens) "(% & % & Htlin & Ht & Hγta & Hγtf & Htoks_dom & Htoks)".
+  iDestruct "Ht" as (s) "(Hγs & Hγ & Ht)".
+  iDestruct "Ht" as (β tokens) "(% & % & Htlin & Ht & Hγea & Hγef & Htoks_dom & Htoks)".
   iDestruct "Htoks_dom" as %Htoks_dom. iDestruct "Htlin" as %Htlin.
   iApply (wp_fresh with "[$Ht $HT]"). solve_ndisj.
   { intros tag Htag. unfold linearizable. exists (β ++ [(#tag, (#"call", y))%V]).
@@ -399,19 +397,19 @@ Proof using HNN'.
   assert (tokens !! tag = None).
   { eapply (@not_elem_of_dom _ _ (gset string)). typeclasses eauto.
     rewrite Htoks_dom. by apply not_elem_of_list_to_set. }
-  iMod (own_update _ (● tokens ⋅ ◯ tokens) (● tokens' ⋅ ◯ tokens') with "[Hγta Hγtf]")
-    as "[Hγta #Hγtf]".
+  iMod (own_update _ (● tokens ⋅ ◯ tokens) (● tokens' ⋅ ◯ tokens') with "[Hγea Hγef]")
+    as "[Hγea #Hγef]".
   { apply auth_update. apply alloc_local_update; done. }
   { iSplit; iFrame. }
 
-  iMod ("Hclose" with "[Ht Hγw Hγ Hγta Hγtf Htoks Hgtsa]") as "_".
+  iMod ("Hclose" with "[Ht Hγs Hγ Hγea Hγef Htoks Hgtsa]") as "_".
   { iNext. iExists s. unfold main_inv at 2. iFrame.
     iExists (β ++ [(#tag, (#"call", y))%V]), tokens'.
     iSplitR. iPureIntro; by constructor.
     iSplitR. iPureIntro; by rewrite filter_app app_nil_r //.
     iSplitR. iPureIntro; by apply per_tag_linearized_add_call.
     iSplitL "Ht". by rewrite filter_app /=.
-    iFrame "Hγta Hγtf".
+    iFrame "Hγea Hγef".
     iSplitR.
     { iPureIntro.
       rewrite filter_app tags_app /= list_to_set_app_L dom_insert_L -Htoks_dom.
@@ -424,7 +422,7 @@ Proof using HNN'.
       rewrite filter_app /=. rewrite (filter_is_nil _ β); last first.
       by apply fresh_tag_nocheck. cbn. rewrite String.eqb_refl //=. }
     iApply (big_sepM_mono with "Htoks"). iIntros (k gs Hk) "HH".
-    iDestruct "HH" as (γt' gts' ?) "HH". simplify_eq. iExists _, _.
+    iDestruct "HH" as (γe' gts' ?) "HH". simplify_eq. iExists _, _.
     iSplitR; [by eauto |]. rewrite filter_app filter_check_single_tag_neq ?app_nil_r //.
     intros ->. unshelve eapply @elem_of_dom_2 with (D := gset string) in Hk; try typeclasses eauto.
     rewrite Htoks_dom elem_of_list_to_set in Hk |- * => Hk. done. }
@@ -436,30 +434,30 @@ Proof using HNN'.
 
   rewrite /atomic_acc /=.
   iInv mainN as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
-  iMod "HAU" as (s') "(HH & Hnext)". by set_solver.
-  iDestruct "HH" as (γi' γw' γt') "(HHi & HHf & Hγf)".
+  iMod "HAU" as "(HH & Hnext)". by set_solver.
+  iDestruct "HH" as (γi' γs' γe') "(HHi & HHf & Hγf)".
   iDestruct "HI" as "(HHa & Hγa & HI)".
   iDestruct (excl_auth_eq with "Hγf Hγa") as %?. simplify_eq.
   iDestruct (excl_auth_eq with "HHf HHa") as %->.
-  iModIntro. iExists _. iFrame "HHi".
+  iModIntro. iFrame "HHi".
   iSplit.
   { (* abort case *)
     iIntros "HHi". iDestruct "Hnext" as "[Hnext _]".
     iSpecialize ("Hnext" with "[HHi HHf Hγf]").
-    { iExists γi, γw, γt. iFrame. }
+    { iExists γi, γs, γe. iFrame. }
     iMod "Hnext". iMod ("Hclose" with "[HI HHa Hγa]") as "_".
     { iNext. iExists _. iFrame. }
     iModIntro. iFrame. }
 
   (* continue case: lin "ghost" emit *)
   iIntros "HHi". iDestruct "Hnext" as "[_ Hnext]".
-  iDestruct "HI" as (β' tokens'') "(% & % & % & Ht & Hγta & Hγtf' & Htoks_dom & Htoks)".
+  iDestruct "HI" as (β' tokens'') "(% & % & % & Ht & Hγea & Hγef' & Htoks_dom & Htoks)".
   iDestruct "Htoks_dom" as %Htoks_dom'.
   iDestruct (excl_auth_upd _ _ _ _ (f s y) with "HHf HHa") as ">[HHf HHa]".
   iSpecialize ("Hnext" with "[HHi HHf Hγf]").
-  { iExists γi, γw, γt. iFrame. }
+  { iExists γi, γs, γe. iFrame. }
 
-  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Htoks") as %?.
+  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγef Hγea Htoks") as %?.
     by rewrite lookup_insert //.
 
   iAssert (⌜filter (λ v, check_tag tag v) β' = [(#tag, (#"call", y))%V]⌝)%I as %Hprevtag.
@@ -469,7 +467,7 @@ Proof using HNN'.
   iDestruct (emit_state_res_call_to_lin _ (r s y) with "[$Hgtsf $Htoks]") as ">[Hgtsf Htoks]".
     done.
 
-  iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa Hγta Hγtf' Htoks]") as "_".
+  iMod "Hnext". iMod ("Hclose" with "[Ht HHa Hγa Hγea Hγef' Htoks]") as "_".
   { iNext. iExists _. unfold main_inv at 2. iFrame.
     iExists (β' ++ [(#tag, (#"lin", (y, r s y)))%V]), tokens''.
     iFrame.
@@ -483,10 +481,10 @@ Proof using HNN'.
   iModIntro. wp_pures. wp_bind (Emit _).
   iInv mainN as ">HI" "Hclose".
   iDestruct "HI" as (s') "(HHa & Hγa & HI)".
-  iDestruct "HI" as (β'' M) "(% & % & % & Ht & Hγta & Hγtf' & Hdom_res & Hres)".
+  iDestruct "HI" as (β'' M) "(% & % & % & Ht & Hγea & Hγef' & Hdom_res & Hres)".
   iDestruct "Hdom_res" as %Hdom_res.
 
-  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγtf Hγta Hres") as %HMtag.
+  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "Hγef Hγea Hres") as %HMtag.
     by rewrite lookup_insert //.
 
   iAssert (⌜filter (λ v, check_tag tag v) β'' = [(#tag, (#"call", y))%V; (#tag, (#"lin", (y, r s y)))%V]⌝)%I
@@ -506,7 +504,7 @@ Proof using HNN'.
   iDestruct (emit_state_res_lin_to_ret with "[$Hgtsf $Hres]") as ">[Hgtsf Hres]".
     done.
 
-  iMod ("Hclose" with "[HHa Hγa Ht Hγta Hγtf' Hres]").
+  iMod ("Hclose" with "[HHa Hγa Ht Hγea Hγef' Hres]").
   { iNext. iExists _. unfold main_inv at 2. iFrame.
     iExists (β'' ++ [(#tag, (#"ret", (y, r s y)))%V]), M.
     rewrite filter_app app_nil_r. iFrame.
