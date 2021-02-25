@@ -199,7 +199,7 @@ Module Wrap.
 Inductive emit_state :=
   | AfterCall (v: val)
   | AfterLin (v v': val)
-  | AfterRet (v v': val).
+  | Done.
 
 (* we need extra resource algebras for our ghost state *)
 Class linG `{model} (Σ: gFunctors) := {
@@ -240,8 +240,7 @@ Definition emit_state_res (t: list val) (m: gmap string (agree (leibnizO gname))
         elts = [(#tag, (#"call", v))%V]
       | AfterLin v v' =>
         elts = [(#tag, (#"call", v))%V; (#tag, (#"lin", (v, v')))%V]
-      | AfterRet v v' =>
-        elts = [(#tag, (#"call", v))%V; (#tag, (#"lin", (v, v')))%V; (#tag, (#"ret", (v, v')))%V]
+      | Done => True
       end⌝)%I.
 
 Lemma emit_state_res_call_to_lin v v' t (m: gmap string (agree (leibnizO gname))) (tag:string) γs :
@@ -271,18 +270,17 @@ Lemma emit_state_res_lin_to_ret v v' t (m: gmap string (agree (leibnizO gname)))
   m !! tag = Some (to_agree γs) →
   own γs (◯E (AfterLin v v' : leibnizO _)) ∗ emit_state_res t m
   ==∗
-  own γs (◯E (AfterRet v v' :leibnizO _)) ∗ emit_state_res (t ++ [(#tag, (#"ret", (v, v')))%V]) m.
+  emit_state_res (t ++ [(#tag, (#"ret", (v, v')))%V]) m.
 Proof.
   iIntros (Htag) "[Hs Hm]".
   iDestruct (big_sepM_delete _ _ tag with "Hm") as "(Htag & Hm)". done.
   iDestruct "Htag" as (? ? ?) "(Hsa & Hst)". simplify_eq.
   iDestruct "Hst" as %Hst.
   iDestruct (excl_auth_eq with "Hs Hsa") as %<-.
-  iMod (excl_auth_upd _ _ _ _ (AfterRet v v') with "Hs Hsa") as "[Hs Hsa]".
+  iMod (excl_auth_upd _ _ _ _ Done with "Hs Hsa") as "[Hs Hsa]".
   iFrame. iModIntro. unfold emit_state_res. rewrite (big_sepM_delete _ m tag) //; [].
   iSplitL "Hsa".
-  { iExists _, _. iSplitR; [by eauto|]. iFrame. iPureIntro.
-    rewrite filter_app filter_check_single_tag_eq Hst //. }
+  { iExists _, _. iSplitR; [by eauto|]. iFrame. }
   { iApply (big_sepM_mono with "Hm"). iIntros (tag' g Htag') "H".
     iDestruct "H" as (γ st ->) "(Hγ & H)". iDestruct "H" as %Hst'.
     apply lookup_delete_Some in Htag' as [? Htag']. iExists _, _.
@@ -493,8 +491,8 @@ Lemma op_correct_ret γ γi γs γe s s' v (tag:string) γtag (M: gmap string (a
     trace_is α ∗
     ⌜linearizable (α ++ [(#tag, (#"ret", (v, r s v)))%V])⌝ ∗
     (trace_is (α ++ [(#tag, (#"ret", (v, r s v)))%V]) ==∗
-     main_inv γ γi γs γe s' ∗
-     own γtag (◯E (AfterRet v (r s v):leibnizO _))).
+     main_inv γ γi γs γe s').
+     (* own γtag (◯E (AfterRet v (r s v):leibnizO _))). *)
 Proof using HNN'.
   iIntros (?) "(HI & HM & Htag)".
   iDestruct "HI" as "(? & ? & HI)".
@@ -518,7 +516,7 @@ Proof using HNN'.
     by eexists; rewrite filter_app app_nil_r. }
 
   iIntros "Ht".
-  iDestruct (emit_state_res_lin_to_ret with "[$Htag $Hres]") as ">[Htag Hres]".
+  iDestruct (emit_state_res_lin_to_ret with "[$Htag $Hres]") as ">Hres".
     done.
 
   iModIntro. iFrame. iExists (β'' ++ [(#tag, (#"ret", (v, r s v)))%V]), M'.
@@ -585,7 +583,7 @@ Proof using HNN'.
   iInv mainN as ">HI" "Hclose". iDestruct "HI" as (s') "HI".
   iDestruct (op_correct_ret with "[$HI $HγM $Hγtag]") as (α') "(Ht & % & Hcont)". done.
   iApply (wp_emit with "[$Ht $HT]"). solve_ndisj. by eauto.
-  iIntros "!> Ht". iMod ("Hcont" with "Ht") as "(HI & ?)".
+  iIntros "!> Ht". iMod ("Hcont" with "Ht") as "HI".
   iMod ("Hclose" with "[HI]"). by iExists _.
   iModIntro. wp_pures. eauto.
 Qed.
