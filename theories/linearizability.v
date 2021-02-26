@@ -33,9 +33,9 @@ Definition init_spec P0 (init: val) : iProp Σ :=
   {{{ P0 }}} init #() {{{ γ r, RET r; is_P R γ r ∗ P_content R γ s_init }}}.
 
 Definition op_spec (op: val) : iProp Σ :=
-  ∀ γ (x y: val) s,
+  ∀ γ (x y: val),
     is_P R γ x -∗
-    <<< P_content R γ s >>>
+    <<< ∀ s, P_content R γ s >>>
       op x y @ ⊤∖E
     <<< P_content R γ (f s y), RET (r s y) >>>.
 
@@ -533,7 +533,7 @@ Lemma op_correct :
   op_spec R_impl (↑N) op_impl -∗
   op_spec R (↑N ∪ ↑mainN) op.
 Proof using HNN'.
-  iIntros "spec" (γ x y _s) "His".
+  iIntros "spec" (γ x y) "His".
   iDestruct "His" as (γi γs γe) "(#HPimpl & #? & #HT)".
   iIntros (φ) "HAU".
 
@@ -555,12 +555,12 @@ Proof using HNN'.
 
   rewrite /atomic_acc /=.
   iInv mainN as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
-  iMod "HAU" as "(HH & Hnext)". by set_solver.
+  iMod "HAU" as (_s) "(HH & Hnext)". by set_solver.
   iDestruct "HH" as (γi' γs' γe') "(HHi & HHf & Hγf)".
   iDestruct (main_inv_gnames_eq with "Hγf HI") as %?. destruct_and!; simplify_eq.
   iDestruct (main_inv_state_eq with "HHf HI") as %?. simplify_eq.
 
-  iModIntro. iFrame "HHi".
+  iModIntro. iExists _. iFrame "HHi".
   iSplit.
   { (* abort case *)
     iIntros "HHi". iDestruct "Hnext" as "[Hnext _]".
