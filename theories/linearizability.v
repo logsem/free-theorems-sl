@@ -492,7 +492,6 @@ Lemma op_correct_ret γ γi γs γe s s' v (tag:string) γtag (M: gmap string (a
     ⌜linearizable (α ++ [(#tag, (#"ret", (v, r s v)))%V])⌝ ∗
     (trace_is (α ++ [(#tag, (#"ret", (v, r s v)))%V]) ==∗
      main_inv γ γi γs γe s').
-     (* own γtag (◯E (AfterRet v (r s v):leibnizO _))). *)
 Proof using HNN'.
   iIntros (?) "(HI & HM & Htag)".
   iDestruct "HI" as "(? & ? & HI)".
