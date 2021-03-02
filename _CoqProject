@@ -23,5 +23,5 @@ theories/traversable_stack.v
 theories/stack_impl.v
 theories/file.v
 theories/iterator.v
-theories/bracketed_file.v
+theories/well_bracketed.v
 theories/linearizability.v
