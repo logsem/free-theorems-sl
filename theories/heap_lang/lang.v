@@ -107,7 +107,7 @@ Inductive expr :=
   (* Prophecy *)
   | NewProph
   | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)
-  (* trace stuff *)
+  (* Trace primitives *)
   | Emit (e : expr)
   | Fresh (e : expr)
 with val :=
@@ -169,6 +169,7 @@ Definition lit_is_unboxed (l: base_lit) : Prop :=
   end.
 Definition val_is_unboxed (v : val) : Prop :=
   match v with
+  | LitV (LitTag _) => False
   | LitV l => lit_is_unboxed l
   | InjLV (LitV l) => lit_is_unboxed l
   | InjRV (LitV l) => lit_is_unboxed l
@@ -178,7 +179,7 @@ Definition val_is_unboxed (v : val) : Prop :=
 Instance lit_is_unboxed_dec l : Decision (lit_is_unboxed l).
 Proof. destruct l; simpl; exact (decide _). Defined.
 Instance val_is_unboxed_dec v : Decision (val_is_unboxed v).
-Proof. destruct v as [ | | | [] | [] ]; simpl; exact (decide _). Defined.
+Proof. destruct v as [ [] | | | [] | [] ]; simpl; exact (decide _). Defined.
 
 (** We just compare the word-sized representation of two values, without looking
 into boxed data.  This works out fine if at least one of the to-be-compared
