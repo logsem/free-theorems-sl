@@ -1,8 +1,8 @@
 EXTRA_DIR:=extra
 COQDOCFLAGS:= \
-  --external 'http://ssr2.msr-inria.inria.fr/doc/ssreflect-1.5/' Ssreflect \
-  --external 'http://ssr2.msr-inria.inria.fr/doc/mathcomp-1.5/' MathComp \
-  --toc --toc-depth 2 --html --interpolate \
+  --external 'https://plv.mpi-sws.org/coqdoc/iris/' iris \
+  --external 'https://plv.mpi-sws.org/coqdoc/stdpp/' stdpp \
+  --toc --toc-depth 0 --html --interpolate \
   --index indexpage --no-lib-name --parse-comments \
   --with-header $(EXTRA_DIR)/header.html --with-footer $(EXTRA_DIR)/footer.html
 export COQDOCFLAGS
