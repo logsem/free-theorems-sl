@@ -9,7 +9,7 @@ Set Default Proof Using "Type".
 Implicit Types t : list val.
 
 Class model := {
-  S :> Type;
+  S : Type;
   s_init : S;
   f : S → val → S;
   r : S → val → val;
@@ -615,8 +615,8 @@ Definition wrapN := nroot .@ "wrap".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_lib_correct {Σ} `{heapPreG Σ, model, Wrap.linG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, lib_spec (↑libN) True lib) →
-  (⊢ ∀ `{heapG Σ} P E lib, lib_spec E P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), lib_spec (↑libN) True lib) →
+  (⊢ ∀ `(heapG Σ) P E lib, lib_spec E P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     linearizable (trace σ').

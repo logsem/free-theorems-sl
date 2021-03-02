@@ -207,8 +207,8 @@ Definition bfilelibN := nroot .@ "bfilelib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_bfilelib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, bfilelib_spec True lib) →
-  (⊢ ∀ `{heapG Σ} P lib, bfilelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), bfilelib_spec True lib) →
+  (⊢ ∀ `(heapG Σ) P lib, bfilelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     bfile_trace (trace σ').

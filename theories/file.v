@@ -196,8 +196,8 @@ Definition filelibN := nroot .@ "filelib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_filelib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, filelib_spec True lib) →
-  (⊢ ∀ `{heapG Σ} P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), filelib_spec True lib) →
+  (⊢ ∀ `(heapG Σ) P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     file_trace (trace σ').

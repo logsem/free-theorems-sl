@@ -235,8 +235,8 @@ Definition iterlibN := nroot .@ "iterlib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_iterlib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, iterlib_spec True lib) →
-  (⊢ ∀ `{heapG Σ} P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), iterlib_spec True lib) →
+  (⊢ ∀ `(heapG Σ) P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     iterator_trace (trace σ').

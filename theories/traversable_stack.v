@@ -277,8 +277,8 @@ Definition stacklibN := nroot .@ "traversable_stacklib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_stacklib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, stacklib_spec True lib) →
-  (⊢ ∀ `{heapG Σ} P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), stacklib_spec True lib) →
+  (⊢ ∀ `(heapG Σ) P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     good_trace (heap_lang.trace σ').

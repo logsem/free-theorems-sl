@@ -1,8 +1,7 @@
 From iris.proofmode Require Import tactics.
 From iris.algebra Require Import auth excl.
 From iris.base_logic.lib Require Import invariants.
-From intensional.heap_lang Require Import lifting proofmode notation.
-From intensional.heap_lang Require Import adequacy.
+From intensional.heap_lang Require Import lang lifting proofmode notation adequacy.
 From intensional Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
@@ -172,8 +171,8 @@ Definition stacklibN := nroot .@ "stacklib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
 Lemma wrap_stacklib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `{heapG Σ}, stacklib_spec True lib) →
-  (⊢ ∀ `{heapG Σ} P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ), stacklib_spec True lib) →
+  (⊢ ∀ `(heapG Σ) P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     good_stack_trace (trace σ').

@@ -1,8 +1,8 @@
 From iris.proofmode Require Import tactics.
 From iris.algebra Require Import auth.
 From iris.base_logic.lib Require Import proph_map.
-From iris.program_logic Require Export weakestpre adequacy.
-From intensional Require Import proofmode notation.
+From iris.program_logic Require Import weakestpre adequacy hoare.
+From intensional.heap_lang Require Import lang proofmode notation.
 Set Default Proof Using "Type".
 
 Class heapPreG Σ := HeapPreG {
@@ -54,8 +54,6 @@ Proof.
   iDestruct (trace_auth_half_frag_agree with "Hta Ht'") as %->. iModIntro. eauto.
 Qed.
 
-Require Import iris.program_logic.hoare.
-
 Lemma module_invariance {Σ} `{heapPreG Σ} (N: namespace)
   (Φ: ∀ `{heapG Σ}, iProp Σ → val → iProp Σ)  (* Module specification *)
   (P0: iProp Σ) (* Initial resources required by the module *)
@@ -68,12 +66,12 @@ Lemma module_invariance {Σ} `{heapPreG Σ} (N: namespace)
   (* The initial trace must satisfy the property *)
   good_trace (trace σ) →
   (* The context must be safe, given a module satisfying the specification Φ *)
-  (⊢ ∀ `{heapG Σ} P m, Φ P m -∗ {{{ P }}} e m {{{ v, RET v; True }}}) →
+  (⊢ ∀ `(heapG Σ) P m, Φ P m -∗ {{{ P }}} e m {{{ v, RET v; True }}}) →
   (* The initialization code must provide P0 *)
-  (⊢ ∀ `{heapG Σ}, {{ True }} e_init {{ _, P0 }}) →
+  (⊢ ∀ `(heapG Σ), {{ True }} e_init {{ _, P0 }}) →
   (* The implementation provided for the module (iops) must satisfy the specification Φ.
      On top of P0 it is given SL resources for the trace. *)
-  (⊢ ∀ `{heapG Σ}, Φ (P0 ∗ trace_is (trace σ) ∗ trace_inv N good_trace)%I imimpl) →
+  (⊢ ∀ `(heapG Σ), Φ (P0 ∗ trace_is (trace σ) ∗ trace_inv N good_trace)%I imimpl) →
   (* Then the trace remains good at every step *)
   ∀ σ' e',
     rtc erased_step ([(e_init;; e imimpl)%E], σ) (e', σ') →
