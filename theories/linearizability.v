@@ -209,6 +209,15 @@ Class linG `{model} (Σ: gFunctors) := {
   lin_emit_res_inG :> inG Σ (authR (gmapUR string (agreeR (leibnizO gname))));
 }.
 
+Definition linΣ `{model} : gFunctors :=
+  #[GFunctor (excl_authR (leibnizO S));
+    GFunctor (excl_authR (leibnizO (gname * gname * gname)));
+    GFunctor (excl_authR (leibnizO emit_state));
+    GFunctor (authR (gmapUR string (agreeR (leibnizO gname))))].
+
+Instance subG_linG `{model}: subG linΣ Σ → linG Σ.
+Proof. solve_inG. Qed.
+
 Section S.
 Context {Σ: gFunctors}.
 Context `{heapG Σ, model, linG Σ}.
@@ -614,16 +623,18 @@ Definition libN := nroot .@ "lib".
 Definition wrapN := nroot .@ "wrap".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
-Lemma wrap_lib_correct {Σ} `{heapPreG Σ, model, Wrap.linG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `(heapG Σ), lib_spec (↑libN) True lib) →
-  (⊢ ∀ `(heapG Σ) P E lib, lib_spec E P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_lib_correct `{model} (e: val → expr) (lib: val):
+  (∀ `(heapG Σ), ⊢ lib_spec (↑libN) True lib) →
+  (∀ `(heapG Σ), ⊢ ∀ P E lib, lib_spec E P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     linearizable (trace σ').
 Proof.
+  set (Σ := #[Wrap.linΣ; invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
   intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ _ (wrapN.@"trace") (@lib_spec _ (↑libN ∪ ↑(wrapN.@"main")) Σ) True e #() (Wrap.lib lib)
-                            linearizable empty_state).
+  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
+                             (wrapN.@"trace") (@lib_spec _ (↑libN ∪ ↑(wrapN.@"main")) Σ) True e #() (Wrap.lib lib)
+                             linearizable empty_state).
   { cbn. apply linearizable_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
   { iIntros (? _) "!>". iApply wp_value; eauto. }

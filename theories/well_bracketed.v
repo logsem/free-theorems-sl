@@ -206,16 +206,18 @@ End Wrap.
 Definition bfilelibN := nroot .@ "bfilelib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
-Lemma wrap_bfilelib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `(heapG Σ), bfilelib_spec True lib) →
-  (⊢ ∀ `(heapG Σ) P lib, bfilelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_bfilelib_correct (e: val → expr) (lib: val):
+  (∀ `(heapG Σ), ⊢ bfilelib_spec True lib) →
+  (∀ `(heapG Σ), ⊢ ∀ P lib, bfilelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     bfile_trace (trace σ').
 Proof.
+  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
   intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ _ bfilelibN (@bfilelib_spec Σ) True e #() (Wrap.lib lib)
-                            bfile_trace empty_state).
+  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
+                             bfilelibN (@bfilelib_spec Σ) True e #() (Wrap.lib lib)
+                             bfile_trace empty_state).
   { cbn. exists []. split; eauto; constructor. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
   { iIntros (? _) "!>". iApply wp_value; eauto. }

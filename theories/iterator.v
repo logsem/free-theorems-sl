@@ -234,15 +234,17 @@ End Wrap.
 Definition iterlibN := nroot .@ "iterlib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
-Lemma wrap_iterlib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `(heapG Σ), iterlib_spec True lib) →
-  (⊢ ∀ `(heapG Σ) P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_iterlib_correct (e: val → expr) (lib: val):
+  (∀ `(heapG Σ), ⊢ iterlib_spec True lib) →
+  (∀ `(heapG Σ), ⊢ ∀ P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     iterator_trace (trace σ').
 Proof.
+  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
   intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ _ iterlibN (@iterlib_spec Σ) True e #() (Wrap.lib lib)
+  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
+                             iterlibN (@iterlib_spec Σ) True e #() (Wrap.lib lib)
                             iterator_trace empty_state).
   { cbn. apply iterator_trace_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }

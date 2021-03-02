@@ -195,16 +195,18 @@ End Wrap.
 Definition filelibN := nroot .@ "filelib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
-Lemma wrap_filelib_correct {Σ} `{heapPreG Σ} (e: val → expr) (lib: val):
-  (⊢ ∀ `(heapG Σ), filelib_spec True lib) →
-  (⊢ ∀ `(heapG Σ) P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_filelib_correct (e: val → expr) (lib: val):
+  (∀ `(heapG Σ), ⊢ filelib_spec True lib) →
+  (∀ `(heapG Σ), ⊢ ∀ P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
     rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     file_trace (trace σ').
 Proof.
+  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
   intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ _ filelibN (@filelib_spec Σ) True e #() (Wrap.lib lib)
-                            file_trace empty_state).
+  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
+                             filelibN (@filelib_spec Σ) True e #() (Wrap.lib lib)
+                             file_trace empty_state).
   { cbn. apply file_trace_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
   { iIntros (? _) "!>". iApply wp_value; eauto. }
