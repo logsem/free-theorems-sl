@@ -6,23 +6,24 @@
 -arg -w -arg -ambiguous-paths
 -arg -w -arg -ssr-search-moved
 
+theories/stack.v
+theories/file.v
+theories/iterator.v
+theories/well_bracketed.v
+theories/traversable_stack.v
+theories/linearizability.v
+theories/stack_impl.v
+
 theories/heap_lang/lang.v
+theories/heap_lang/lifting.v
+theories/heap_lang/adequacy.v
 theories/heap_lang/locations.v
 theories/heap_lang/tactics.v
 theories/heap_lang/notation.v
-theories/heap_lang/lifting.v
 theories/heap_lang/array.v
 theories/heap_lang/proofmode.v
-theories/heap_lang/adequacy.v
 
 theories/stdpp_extra.v
 theories/iris_extra.v
 theories/tactics.v
 theories/trace_helpers.v
-theories/stack.v
-theories/traversable_stack.v
-theories/stack_impl.v
-theories/file.v
-theories/iterator.v
-theories/well_bracketed.v
-theories/linearizability.v
