@@ -1,5 +1,5 @@
 From intensional.heap_lang Require Import lang.
-From intensional Require Import stdpp_extra.
+From intensional.examples Require Import stdpp_extra.
 
 Inductive Learnt {A: Type} (a: A) :=
 | AlreadyKnown : Learnt a.

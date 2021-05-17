@@ -3,7 +3,7 @@ From iris.algebra Require Import auth excl.
 From iris.base_logic.lib Require Import invariants.
 From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
-From intensional Require Import stdpp_extra tactics.
+From intensional.examples Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 

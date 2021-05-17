@@ -4,7 +4,7 @@ From iris.base_logic.lib Require Import invariants.
 From iris.program_logic Require Import atomic.
 From intensional.heap_lang Require Import lifting proofmode notation.
 From intensional.heap_lang Require Import adequacy.
-From intensional Require Import stdpp_extra iris_extra trace_helpers.
+From intensional.examples Require Import stdpp_extra iris_extra trace_helpers.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 

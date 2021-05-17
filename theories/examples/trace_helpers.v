@@ -1,5 +1,5 @@
 From intensional.heap_lang Require Import lang notation.
-From intensional Require Import stdpp_extra tactics.
+From intensional.examples Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
