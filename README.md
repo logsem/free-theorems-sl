@@ -46,7 +46,7 @@ The development is known to build with Coq 8.9.1 to 8.12 and Iris 3.3.
 
 The easiest way to install those is by creating a fresh *local*
 [opam](https://opam.ocaml.org/) switch with everything needed (check that opam
->= 2.0 is installed):
+`>= 2.0` is installed):
 
 ```
   opam switch create -y --repositories=default,coq-released=https://coq.inria.fr/opam/released . ocaml-base-compiler.4.09.1
