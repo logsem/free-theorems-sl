@@ -37,6 +37,16 @@
 <span class="id" title="keyword">Implicit</span> <span class="id" title="keyword">Types</span> <span class="id" title="var">t</span> : <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>.<br/>
 
 <br/>
+</div>
+
+<div class="doc">
+<a id="lab1"></a><h2 class="section">A simple stack (Section 2)</h2>
+<a id="lab2"></a><h3 class="section">The stack specification in separation logic</h3>
+
+</div>
+<div class="code">
+
+<br/>
 <span class="id" title="keyword">Definition</span> <a id="create_spec" class="idref" href="#create_spec"><span class="id" title="definition">create_spec</span></a> `{<a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">!</span></a><a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">heapG</span></a> <a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">Σ</span></a>} <a id="P0:3" class="idref" href="#P0:3"><span class="id" title="binder">P0</span></a> (<a id="Stack:4" class="idref" href="#Stack:4"><span class="id" title="binder">Stack</span></a>: <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.base_logic.lib.iprop.html#iProp_solution.iProp"><span class="id" title="abbreviation">iProp</span></a> <a class="idref" href="intensional.examples.stack.html#0101b9beac487b383a5ba2a8f6922788"><span class="id" title="variable">Σ</span></a>) (<a id="create:5" class="idref" href="#create:5"><span class="id" title="binder">create</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>) : <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.base_logic.lib.iprop.html#iProp_solution.iProp"><span class="id" title="abbreviation">iProp</span></a> <a class="idref" href="intensional.examples.stack.html#0101b9beac487b383a5ba2a8f6922788"><span class="id" title="variable">Σ</span></a> :=<br/>
 &nbsp;&nbsp;<a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">{{{</span></a> <a class="idref" href="intensional.examples.stack.html#P0:3"><span class="id" title="variable">P0</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">}}}</span></a><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="intensional.examples.stack.html#create:5"><span class="id" title="variable">create</span></a> <a class="idref" href="intensional.heap_lang.notation.html#66e8f9d9f9894a066beff0d1c67d3c77"><span class="id" title="notation">#</span></a><a class="idref" href="intensional.heap_lang.notation.html#3127c6bc552ca21a494fc6e3474a507d"><span class="id" title="notation">()</span></a><br/>
@@ -68,6 +78,15 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="intensional.examples.stack.html#create_spec"><span class="id" title="definition">create_spec</span></a> <a class="idref" href="intensional.examples.stack.html#P0:24"><span class="id" title="variable">P0</span></a> <a class="idref" href="intensional.examples.stack.html#Stack:26"><span class="id" title="variable">Stack</span></a> <span class="id" title="var">create</span> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#17a7b93bfefac02a752836d54e5bc9da"><span class="id" title="notation">∗</span></a> <a class="idref" href="intensional.examples.stack.html#push_spec"><span class="id" title="definition">push_spec</span></a> <a class="idref" href="intensional.examples.stack.html#Stack:26"><span class="id" title="variable">Stack</span></a> <span class="id" title="var">push</span> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#17a7b93bfefac02a752836d54e5bc9da"><span class="id" title="notation">∗</span></a> <a class="idref" href="intensional.examples.stack.html#pop_spec"><span class="id" title="definition">pop_spec</span></a> <a class="idref" href="intensional.examples.stack.html#Stack:26"><span class="id" title="variable">Stack</span></a> <span class="id" title="var">pop</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span> =&gt; <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#::bi_scope:'False'"><span class="id" title="notation">False</span></a><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab3"></a><h3 class="section">The trace property <span class="inlinecode"><a class="idref" href="intensional.examples.stack.html#good_stack_trace"><span class="id" title="definition">good_stack_trace</span></a></span>: "each non-unit value returned by <span class="inlinecode"><a class="idref" href="intensional.examples.stack_impl.html#Stack_impl.pop"><span class="id" title="definition">pop</span></a></span> was an argument of a previous <span class="inlinecode"><a class="idref" href="intensional.examples.stack_impl.html#Stack_impl.push"><span class="id" title="definition">push</span></a></span>".</h3>
+
+</div>
+<div class="code">
 
 <br/>
 <span class="id" title="keyword">Section</span> <a id="Trace" class="idref" href="#Trace"><span class="id" title="section">Trace</span></a>.<br/>
@@ -102,6 +121,15 @@
 
 <br/>
 <span class="id" title="keyword">End</span> <a class="idref" href="intensional.examples.stack.html#Trace"><span class="id" title="section">Trace</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab4"></a><h3 class="section">Definition and correctness of the wrapper code</h3>
+
+</div>
+<div class="code">
 
 <br/>
 <span class="id" title="keyword">Module</span> <a id="Wrap" class="idref" href="#Wrap"><span class="id" title="module">Wrap</span></a>.<br/>
@@ -195,6 +223,12 @@
 <span class="id" title="keyword">End</span> <a class="idref" href="intensional.examples.stack.html#Wrap.S"><span class="id" title="section">S</span></a>.<br/>
 
 <br/>
+</div>
+
+<div class="doc">
+Wrapping code for an entire library 
+</div>
+<div class="code">
 <span class="id" title="keyword">Definition</span> <a id="Wrap.lib" class="idref" href="#Wrap.lib"><span class="id" title="definition">lib</span></a> (<a id="lib_impl:51" class="idref" href="#lib_impl:51"><span class="id" title="binder">lib_impl</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>): <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> :=<br/>
 &nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="intensional.examples.stack.html#lib_impl:51"><span class="id" title="variable">lib_impl</span></a> <span class="id" title="keyword">with</span><br/>
 &nbsp;&nbsp;| <a class="idref" href="intensional.heap_lang.notation.html#cc14470b8443804ba405fa710525256d"><span class="id" title="notation">(</span></a><span class="id" title="var">create_impl</span><a class="idref" href="intensional.heap_lang.notation.html#cc14470b8443804ba405fa710525256d"><span class="id" title="notation">,</span></a> <span class="id" title="var">push_impl</span><a class="idref" href="intensional.heap_lang.notation.html#cc14470b8443804ba405fa710525256d"><span class="id" title="notation">,</span></a> <span class="id" title="var">pop_impl</span><a class="idref" href="intensional.heap_lang.notation.html#cc14470b8443804ba405fa710525256d"><span class="id" title="notation">)</span></a>%<span class="id" title="var">V</span> =&gt;<br/>
@@ -203,6 +237,12 @@
 &nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
 
 <br/>
+</div>
+
+<div class="doc">
+Correctness of the wrapper at the level of the entire library 
+</div>
+<div class="code">
 <span class="id" title="keyword">Lemma</span> <a id="Wrap.correct" class="idref" href="#Wrap.correct"><span class="id" title="lemma">correct</span></a> `{<a id="heapG0:54" class="idref" href="#heapG0:54"><span class="id" title="binder">!</span></a><a id="heapG0:54" class="idref" href="#heapG0:54"><span class="id" title="binder">heapG</span></a> <a id="heapG0:54" class="idref" href="#heapG0:54"><span class="id" title="binder">Σ</span></a>} <a id="N:55" class="idref" href="#N:55"><span class="id" title="binder">N</span></a> <a id="P0:56" class="idref" href="#P0:56"><span class="id" title="binder">P0</span></a> (<a id="lib_impl:57" class="idref" href="#lib_impl:57"><span class="id" title="binder">lib_impl</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>) :<br/>
 &nbsp;&nbsp;<a class="idref" href="intensional.examples.stack.html#stacklib_spec"><span class="id" title="definition">stacklib_spec</span></a> <a class="idref" href="intensional.examples.stack.html#P0:56"><span class="id" title="variable">P0</span></a> <a class="idref" href="intensional.examples.stack.html#lib_impl:57"><span class="id" title="variable">lib_impl</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#0f70793a7efc24c230ef5e3a6ac95b68"><span class="id" title="notation">-∗</span></a><br/>
 &nbsp;&nbsp;<a class="idref" href="intensional.examples.stack.html#stacklib_spec"><span class="id" title="definition">stacklib_spec</span></a> (<a class="idref" href="intensional.examples.stack.html#P0:56"><span class="id" title="variable">P0</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#17a7b93bfefac02a752836d54e5bc9da"><span class="id" title="notation">∗</span></a> <a class="idref" href="intensional.heap_lang.lifting.html#trace_is"><span class="id" title="definition">trace_is</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Lists.List.html#ae9a5e1034e143b218b09d8e454472bd"><span class="id" title="notation">[]</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#17a7b93bfefac02a752836d54e5bc9da"><span class="id" title="notation">∗</span></a> <a class="idref" href="intensional.heap_lang.lifting.html#trace_inv"><span class="id" title="definition">trace_inv</span></a> <a class="idref" href="intensional.examples.stack.html#N:55"><span class="id" title="variable">N</span></a> <a class="idref" href="intensional.examples.stack.html#good_stack_trace"><span class="id" title="definition">good_stack_trace</span></a>) (<a class="idref" href="intensional.examples.stack.html#Wrap.lib"><span class="id" title="definition">lib</span></a> <a class="idref" href="intensional.examples.stack.html#lib_impl:57"><span class="id" title="variable">lib_impl</span></a>).<br/>
@@ -220,10 +260,38 @@
 <span class="id" title="keyword">End</span> <a class="idref" href="intensional.examples.stack.html#Wrap"><span class="id" title="module">Wrap</span></a>.<br/>
 
 <br/>
+</div>
+
+<div class="doc">
+<a id="lab5"></a><h3 class="section">Adequacy</h3>
+
+</div>
+<div class="code">
+
+<br/>
 <span class="id" title="keyword">Definition</span> <a id="stacklibN" class="idref" href="#stacklibN"><span class="id" title="definition">stacklibN</span></a> := <a class="idref" href="https://plv.mpi-sws.org/coqdoc/stdpp//stdpp.namespaces.html#nroot"><span class="id" title="definition">nroot</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/stdpp//stdpp.namespaces.html#e79e436c08f66d063bd17fb4bcd1cac6"><span class="id" title="notation">.@</span></a> "stacklib".<br/>
 <span class="id" title="keyword">Definition</span> <a id="empty_state" class="idref" href="#empty_state"><span class="id" title="definition">empty_state</span></a> : <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.state"><span class="id" title="record">state</span></a> := <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.Build_state"><span class="id" title="constructor">Build_state</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/stdpp//stdpp.base.html#c25a9c7b1a4bc0f91edca9e331dd7eee"><span class="id" title="notation">∅</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Lists.List.html#ae9a5e1034e143b218b09d8e454472bd"><span class="id" title="notation">[]</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/stdpp//stdpp.base.html#c25a9c7b1a4bc0f91edca9e331dd7eee"><span class="id" title="notation">∅</span></a>.<br/>
 
 <br/>
+</div>
+
+<div class="doc">
+Compose the wrapper correctness with the adequacy theorem.
+
+<div class="paragraph"> </div>
+
+   We obtain the following theorem:
+
+<div class="paragraph"> </div>
+
+     For any library implementation <span class="inlinecode"><a class="idref" href="intensional.examples.linearizability.html#Wrap.lib"><span class="id" title="definition">lib</span></a></span>,
+     for any client code <span class="inlinecode"><span class="id" title="var">e</span></span> verified against the library,
+     when running the client against the (wrapped) library,
+     the trace of calls observed at any step satisfies the expected trace property
+     <span class="inlinecode"><a class="idref" href="intensional.examples.stack.html#good_stack_trace"><span class="id" title="definition">good_stack_trace</span></a></span>.
+
+</div>
+<div class="code">
 <span class="id" title="keyword">Lemma</span> <a id="wrap_stacklib_correct" class="idref" href="#wrap_stacklib_correct"><span class="id" title="lemma">wrap_stacklib_correct</span></a> (<a id="e:58" class="idref" href="#e:58"><span class="id" title="binder">e</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.expr"><span class="id" title="inductive">expr</span></a>) (<a id="lib:59" class="idref" href="#lib:59"><span class="id" title="binder">lib</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>):<br/>
 &nbsp;&nbsp;<a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">(</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">∀</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">`(</span></a><a id="H:68" class="idref" href="#H:68"><span class="id" title="binder">heapG</span></a> <a id="H:68" class="idref" href="#H:68"><span class="id" title="binder">Σ</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">),</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#b7d65d242d889c3e37aca6013a51bfad"><span class="id" title="notation">⊢</span></a> <a class="idref" href="intensional.examples.stack.html#stacklib_spec"><span class="id" title="definition">stacklib_spec</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#::bi_scope:'True'"><span class="id" title="notation">True</span></a> <a class="idref" href="intensional.examples.stack.html#lib:59"><span class="id" title="variable">lib</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">)</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a><br/>
 &nbsp;&nbsp;<a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">(</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">∀</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">`(</span></a><a id="H:63" class="idref" href="#H:63"><span class="id" title="binder">heapG</span></a> <a id="H:63" class="idref" href="#H:63"><span class="id" title="binder">Σ</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#e15f3fa8414cf45e36c73a91b3f5f2c2"><span class="id" title="notation">),</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#b7d65d242d889c3e37aca6013a51bfad"><span class="id" title="notation">⊢</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#3737660a6294eb9f7af6df17be5eb5a3"><span class="id" title="notation">∀</span></a> <a id="P:64" class="idref" href="#P:64"><span class="id" title="binder">P</span></a> <a id="lib:65" class="idref" href="#lib:65"><span class="id" title="binder">lib</span></a><a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#3737660a6294eb9f7af6df17be5eb5a3"><span class="id" title="notation">,</span></a> <a class="idref" href="intensional.examples.stack.html#stacklib_spec"><span class="id" title="definition">stacklib_spec</span></a> <a class="idref" href="intensional.examples.stack.html#P:64"><span class="id" title="variable">P</span></a> <a class="idref" href="intensional.examples.stack.html#lib:65"><span class="id" title="variable">lib</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#6e96398fec71e244af9dd75e40876ca6"><span class="id" title="notation">-∗</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">{{{</span></a> <a class="idref" href="intensional.examples.stack.html#P:64"><span class="id" title="variable">P</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">}}}</span></a> <a class="idref" href="intensional.examples.stack.html#e:58"><span class="id" title="variable">e</span></a> <a class="idref" href="intensional.examples.stack.html#lib:65"><span class="id" title="variable">lib</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">{{{</span></a> <a id="v:66" class="idref" href="#v:66"><span class="id" title="binder">v</span></a><a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">,</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">RET</span></a> <a class="idref" href="intensional.examples.stack.html#v:66"><span class="id" title="variable">v</span></a><a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">;</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.interface.html#::bi_scope:'True'"><span class="id" title="notation">True</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.bi.weakestpre.html#0993f0cae7df37fdc909fad0b1a3747b"><span class="id" title="notation">}}}</span></a><a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">)</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a><br/>
