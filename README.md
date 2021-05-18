@@ -55,7 +55,7 @@ The easiest way to install those is by creating a fresh *local*
 
 #### Troubleshooting
 
-If the invocation fails at some point, either remove the `_opam_` directory and
+If the invocation fails at some point, either remove the `_opam` directory and
 re-run the command (this will redo everything), or do `eval $(opam env)` and
 then `opam install -y .` (this will continue from where it failed).
 
