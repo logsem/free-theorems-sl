@@ -8,6 +8,18 @@ From intensional.examples Require Import stdpp_extra iris_extra trace_helpers.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
+(* The mathematical model of a data-structure exposing a single operation,
+   where:
+
+   - [f s v s'] specifies that calling the operation on a structure at state [s]
+     with argument [v] results in an updated state [s'];
+
+   - [r s v v'] specifies that calling the operation on a structure at state [s]
+     with argument [v] produces a result value [v'].
+
+   NOTE: [f] and [r] are here taken to be relations, whereas they are functions
+   in the paper. This is an easy generalization that has otherwise no impact on
+   the proof. *)
 Class model := {
   S : Type;
   s_init : S;
