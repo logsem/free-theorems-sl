@@ -62,6 +62,14 @@ Class heapG Σ := HeapG {
   heapG_traceG :> traceG Σ;
 }.
 
+(** Trace-related resources.
+
+   - [trace_is] asserts the ownership over the trace (it corresponds to [trace]
+     in the paper);
+   - [trace_inv] asserts that the trace preserves a given invariant (it is named
+     [traceInv] in the paper);
+   - [hist] describes a snapshot of the trace, as it was sometime in the past
+*)
 Definition trace_auth `{hT: traceG Σ} (t: list val) :=
   (own trace_name (●F (to_agree (t: traceO))))%I.
 Definition hist `{hT: traceG Σ} (t: list val) :=
@@ -73,6 +81,8 @@ Definition trace_is `{hT: traceG Σ} (t: list val) :=
 
 Definition trace_inv `{hT:traceG Σ, hI:invG Σ} (N: namespace) (I: list val → Prop) :=
   inv N (∃ t, trace_half_frag t ∗ ⌜I t⌝).
+
+(** Reasoning rules for the trace predicates *)
 
 Instance hist_persistent `{traceG Σ} (t: list val): Persistent (hist t) := _.
 
@@ -413,6 +423,7 @@ Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types l : loc.
 
+(** Specification for [emit]. Adds an event to the trace. *)
 Lemma wp_emit s E tr v N (I: list val → Prop) :
   ↑N ⊆ E →
   I (tr ++ [v]) →
@@ -434,10 +445,7 @@ Proof.
   iModIntro. by iApply "Hφ".
 Qed.
 
-Lemma pick_fresh_tag (tr: list val) :
-  ∃ (tag: string), tag ∉ tags tr.
-Proof. exists (fresh (tags tr)). apply infinite_is_fresh. Qed.
-
+(** Specification for [fresh]. Emits an event annotated with a fresh tag. *)
 Lemma wp_fresh s E tr v N (I: list val → Prop) :
   ↑N ⊆ E →
   (∀ (tag:string), tag ∉ tags tr → I (tr ++ [(#tag, v)%V])) →
@@ -451,8 +459,8 @@ Proof.
   iDestruct (trace_half_frag_agree with "Htr' Ht") as %->.
   iApply wp_lift_atomic_head_step; [done|].
   iIntros (σ1 κ κs n) "(? & Hta & ?) !>".
-  destruct (pick_fresh_tag σ1.(trace)) as [tag Htag]. iSplit; [ by eauto |].
-  iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
+  pose proof (infinite_is_fresh (tags σ1.(trace))).
+  iSplit; [ by eauto |]. iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
   iDestruct (trace_agree with "Hta Ht") as %<-.
   iMod (trace_add_event with "Hta Ht Htr'") as "(Hta & Ht & Htr')".
   iModIntro. iFrame. iSplitL; last done.

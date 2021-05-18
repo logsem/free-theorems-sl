@@ -7,6 +7,8 @@ Set Default Proof Using "Type".
 
 From intensional Require stack traversable_stack.
 
+(** *** Bonus: an example implementation of a stack library satisfying the specifications in [stack] and [traversable_stack]. *)
+
 Module Stack_impl.
 Section S.
 Context {Σ: gFunctors}.

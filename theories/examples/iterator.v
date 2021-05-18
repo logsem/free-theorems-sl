@@ -7,6 +7,10 @@ From intensional.examples Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
+(** ** An iterator over a mutable collection (Section 5.2) *)
+
+(** *** Separation logic specification *)
+
 Definition size_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (size: val): iProp Σ :=
   ∀ c, {{{ Coll c }}} size #() {{{ x, RET x; Coll c }}}.
 
@@ -34,6 +38,8 @@ Definition iterlib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
     next_spec Coll Iter next
   | _ => False
   end.
+
+(** *** The trace property [iterator_trace]: "an iterator can only be used if the collection has not been destructively updated in the meantime". *)
 
 Section Trace.
 
@@ -78,6 +84,8 @@ Lemma iterator_trace_next t t' (n0 k: nat) x :
 Proof. unfold iterator_trace. go*. Qed.
 
 End Trace.
+
+(** *** Definition and correctness of the wrapper code *)
 
 Module Wrap.
 
@@ -204,6 +212,7 @@ Qed.
 
 End S.
 
+(** Wrapping code for an entire library *)
 Definition lib (lib_impl: val): val :=
   match lib_impl with
   | (size_impl, add_impl, remove_impl, iterator_impl, next_impl)%V =>
@@ -211,6 +220,7 @@ Definition lib (lib_impl: val): val :=
   | _ => #()
   end.
 
+(** Correctness of the wrapper code *)
 Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
   iterlib_spec P0 lib_impl -∗
   iterlib_spec (P0 ∗ trace_is [] ∗ trace_inv N iterator_trace) (lib lib_impl).
@@ -231,9 +241,13 @@ Qed.
 
 End Wrap.
 
+(** *** Adequacy *)
+
 Definition iterlibN := nroot .@ "iterlib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
+(** The trace property [iterator_trace] is satisfied at every step of the
+    execution at the level of the operational semantics. *)
 Lemma wrap_iterlib_correct (e: val → expr) (lib: val):
   (∀ `(heapG Σ), ⊢ iterlib_spec True lib) →
   (∀ `(heapG Σ), ⊢ ∀ P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →

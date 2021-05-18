@@ -7,6 +7,10 @@ From intensional.examples Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
+(** ** A file API with open/read/close operations (Section 5.1) *)
+
+(** *** Separation logic specification *)
+
 Definition open_spec `{!heapG Σ} (isClosed isOpen: iProp Σ) (open: val): iProp Σ :=
   {{{ isClosed }}} open #() {{{ RET #(); isOpen }}}.
 
@@ -26,6 +30,8 @@ Definition filelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
     read_spec isOpen read
   | _ => False
   end.
+
+(** *** The trace property [file_trace]: "one can only read and close when the file is open". *)
 
 Section Trace.
 
@@ -100,6 +106,7 @@ Proof. unfold file_trace; go. Qed.
 
 End Trace.
 
+(** *** Definition and correctness of the wrapper code *)
 
 Module Wrap.
 Section S.
@@ -167,6 +174,7 @@ Qed.
 
 End S.
 
+(** Wrapping code for an entire library *)
 Definition lib (lib_impl: val): val :=
   match lib_impl with
   | (open_impl, close_impl, read_impl)%V =>
@@ -174,6 +182,7 @@ Definition lib (lib_impl: val): val :=
   | _ => #()
   end.
 
+(** Correctness of the wrapper at the level of the library *)
 Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
   filelib_spec P0 lib_impl -∗
   filelib_spec (P0 ∗ trace_is [] ∗ trace_inv N file_trace) (lib lib_impl).
@@ -192,9 +201,13 @@ Qed.
 
 End Wrap.
 
+(** *** Adequacy *)
+
 Definition filelibN := nroot .@ "filelib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
+(** The trace property [file_trace] is satisfied at every step of the execution
+    at the level of the operational semantics. *)
 Lemma wrap_filelib_correct (e: val → expr) (lib: val):
   (∀ `(heapG Σ), ⊢ filelib_spec True lib) →
   (∀ `(heapG Σ), ⊢ ∀ P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →

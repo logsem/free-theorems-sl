@@ -6,6 +6,9 @@ From intensional.examples Require Import stdpp_extra tactics.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
+(** ** A simple stack (Section 2) *)
+(** *** The stack specification in separation logic *)
+
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
   {{{ P0 }}}
     create #()
@@ -35,6 +38,8 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
     | _ => False
     end.
 
+(** *** The trace property [good_stack_trace]: "each non-unit value returned by [pop] was an argument of a previous [push]". *)
+
 Section Trace.
 
 Definition good_stack_trace (t: list val): Prop :=
@@ -62,6 +67,8 @@ Proof. unfold good_stack_trace. go*. Qed.
 
 End Trace.
 
+
+(** *** Definition and correctness of the wrapper code *)
 
 Module Wrap.
 Section S.
@@ -144,6 +151,7 @@ Qed.
 
 End S.
 
+(** Wrapping code for an entire library *)
 Definition lib (lib_impl: val): val :=
   match lib_impl with
   | (create_impl, push_impl, pop_impl)%V =>
@@ -151,6 +159,7 @@ Definition lib (lib_impl: val): val :=
   | _ => #()
   end.
 
+(** Correctness of the wrapper at the level of the entire library *)
 Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
   stacklib_spec P0 lib_impl -∗
   stacklib_spec (P0 ∗ trace_is [] ∗ trace_inv N good_stack_trace) (lib lib_impl).
@@ -166,10 +175,21 @@ Qed.
 
 End Wrap.
 
+(** *** Adequacy *)
 
 Definition stacklibN := nroot .@ "stacklib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
+(** Compose the wrapper correctness with the adequacy theorem.
+
+   We obtain the following theorem:
+
+     For any library implementation [lib],
+     for any client code [e] verified against the library,
+     when running the client against the (wrapped) library,
+     the trace of calls observed at any step satisfies the expected trace property
+     [good_stack_trace].
+*)
 Lemma wrap_stacklib_correct (e: val → expr) (lib: val):
   (∀ `(heapG Σ), ⊢ stacklib_spec True lib) →
   (∀ `(heapG Σ), ⊢ ∀ P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →

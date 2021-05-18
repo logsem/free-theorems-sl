@@ -54,6 +54,9 @@ Proof.
   iDestruct (trace_auth_half_frag_agree with "Hta Ht'") as %->. iModIntro. eauto.
 Qed.
 
+(** Specialized adequacy theorem to establish trace properties as free theorems.
+   This corresponds to Theorem 4.1 in the paper.
+*)
 Lemma module_invariance {Σ} `{heapPreG Σ} (N: namespace)
   (Φ: ∀ `{heapG Σ}, iProp Σ → val → iProp Σ)  (* Module specification *)
   (P0: iProp Σ) (* Initial resources required by the module *)

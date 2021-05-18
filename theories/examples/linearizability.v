@@ -8,17 +8,32 @@ From intensional.examples Require Import stdpp_extra iris_extra trace_helpers.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
-(* The mathematical model of a data-structure exposing a single operation,
-   where:
+(** ** A concurrent specification using logically atomic triples (Section 6) *)
 
+(** *** Separation logic specification *)
+
+(** The Separation Logic specification is parameterized by:
+    - a mathematical model of the data structure ([model] below)
+    - two Separation Logic representation predicates [is_P] and [P_state] ([repr] below).
+      - [is_P γ v] asserts that the value [v] is a valid instance of the
+        structure, associated with the logical name [γ]. It is a persistent
+        assertion. (It is named [IsP] in the paper.)
+      - [P_state γ s] asserts that the current state of the data structure
+        with ghost name [γ] is [s]. It is not a persistent assertion as it
+        allows updating the state of the structure with operation [op].
+        (It is named [PState] in the paper.)
+*)
+
+(** *** *)
+
+(** The mathematical model of a data structure exposing a single operation,
+   where:
    - [f s v s'] specifies that calling the operation on a structure at state [s]
      with argument [v] results in an updated state [s'];
-
    - [r s v v'] specifies that calling the operation on a structure at state [s]
-     with argument [v] produces a result value [v'].
-
-   NOTE: [f] and [r] are here taken to be relations, whereas they are functions
-   in the paper. This is an easy generalization that has otherwise no impact on
+     with argument [v] produces a result value [v']. *)
+(** _NOTE_: [f] and [r] are here taken to be relations, whereas they are functions
+   in the paper. This is a small generalization that has otherwise no impact on
    the proof. *)
 Class model := {
   S : Type;
@@ -27,9 +42,10 @@ Class model := {
   r : S → val → val → Prop;
 }.
 
+(** The representation predicates [is_P] and [P_state]. *)
 Record repr {Σ: gFunctors} `{model} := {
   is_P: gname → val → iProp Σ;
-  P_content: gname → S → iProp Σ;
+  P_state: gname → S → iProp Σ;
   is_P_persistent : ∀ γ x, Persistent (is_P γ x);
 }.
 
@@ -42,14 +58,16 @@ Context `{model} (R: repr Σ).
 Context (E: coPset).
 
 Definition init_spec P0 (init: val) : iProp Σ :=
-  {{{ P0 }}} init #() {{{ γ r, RET r; is_P R γ r ∗ P_content R γ s_init }}}.
+  {{{ P0 }}} init #() {{{ γ r, RET r; is_P R γ r ∗ P_state R γ s_init }}}.
 
+(** The specification for the concurrent operation [op]. [<<< _ >>> _ <<< _ >>>]
+    denotes a logically atomic triple. *)
 Definition op_spec (op: val) : iProp Σ :=
   ∀ γ (x y: val),
     is_P R γ x -∗
-    <<< ∀ s, P_content R γ s >>>
+    <<< ∀ s, P_state R γ s >>>
       op x y @ ⊤∖E
-    <<< ∃ s' y', P_content R γ s' ∗ ⌜f s y s' ∧ r s y y'⌝, RET y' >>>.
+    <<< ∃ s' y', P_state R γ s' ∗ ⌜f s y s' ∧ r s y y'⌝, RET y' >>>.
 
 End Specs.
 
@@ -60,6 +78,8 @@ Definition lib_spec `{model} (E: coPset) `{!heapG Σ} (P0: iProp Σ) (lib: val) 
   | (init, op)%V => init_spec R P0 init ∗ op_spec R E op
   | _ => False
   end.
+
+(** *** The trace property [linearizable]: "concurrent calls to [op] are linearizable" *)
 
 Section Trace.
 
@@ -213,9 +233,11 @@ Qed.
 
 End Trace.
 
+(** *** Definition and correctness of the wrapper code *)
+
 Module Wrap.
 
-Inductive emit_state :=
+Inductive tag_state :=
   | AfterCall (v: val)
   | AfterLin (v v': val)
   | Done.
@@ -224,14 +246,14 @@ Inductive emit_state :=
 Class linG `{model} (Σ: gFunctors) := {
   lin_model_inG :> inG Σ (excl_authR (leibnizO S));
   lin_gnames_inG :> inG Σ (excl_authR (leibnizO (gname * gname * gname)));
-  lin_emit_state_inG :> inG Σ (excl_authR (leibnizO emit_state));
-  lin_emit_res_inG :> inG Σ (authR (gmapUR string (agreeR (leibnizO gname))));
+  lin_tag_state_inG :> inG Σ (excl_authR (leibnizO tag_state));
+  lin_tag_res_inG :> inG Σ (authR (gmapUR string (agreeR (leibnizO gname))));
 }.
 
 Definition linΣ `{model} : gFunctors :=
   #[GFunctor (excl_authR (leibnizO S));
     GFunctor (excl_authR (leibnizO (gname * gname * gname)));
-    GFunctor (excl_authR (leibnizO emit_state));
+    GFunctor (excl_authR (leibnizO tag_state));
     GFunctor (authR (gmapUR string (agreeR (leibnizO gname))))].
 
 Instance subG_linG `{model}: subG linΣ Σ → linG Σ.
@@ -260,7 +282,9 @@ Definition op : val :=
     Emit ("t", (#"ret", ("y", "r"))) ;;
     "r".
 
-Definition emit_state_res (t: list val) (m: gmap string (agree (leibnizO _))) :
+(** The logical state associated with the tags indexed in [m]. (Named
+    [tagsState] in the paper.) *)
+Definition tags_state (t: list val) (m: gmap string (agree (leibnizO _))) :
     iProp Σ :=
   ([∗ map] tag↦gs ∈ m, ∃ γs tagst,
      ⌜gs = to_agree γs⌝ ∗ own γs (●E (tagst:leibnizO _)) ∗
@@ -273,13 +297,13 @@ Definition emit_state_res (t: list val) (m: gmap string (agree (leibnizO _))) :
       | Done => True
       end⌝)%I.
 
-Lemma emit_state_res_call_to_lin v v' t (m: gmap string (agree (leibnizO _)))
+Lemma tags_state_call_to_lin v v' t (m: gmap string (agree (leibnizO _)))
     (tag:string) γs :
   m !! tag = Some (to_agree γs) →
-  own γs (◯E (AfterCall v : leibnizO _)) ∗ emit_state_res t m
+  own γs (◯E (AfterCall v : leibnizO _)) ∗ tags_state t m
   ==∗
   own γs (◯E (AfterLin v v' :leibnizO _)) ∗
-  emit_state_res (t ++ [(#tag, (#"lin", (v, v')))%V]) m.
+  tags_state (t ++ [(#tag, (#"lin", (v, v')))%V]) m.
 Proof.
   iIntros (Htag) "[Hs Hm]".
   iDestruct (big_sepM_delete _ _ tag with "Hm") as "(Htag & Hm)". done.
@@ -287,7 +311,7 @@ Proof.
   iDestruct "Hst" as %Hst.
   iDestruct (excl_auth_eq with "Hs Hsa") as %<-.
   iMod (excl_auth_upd _ _ _ _ (AfterLin v v') with "Hs Hsa") as "[Hs Hsa]".
-  iFrame. iModIntro. rewrite /emit_state_res (big_sepM_delete _ m tag) //; [].
+  iFrame. iModIntro. rewrite /tags_state (big_sepM_delete _ m tag) //; [].
   iSplitL "Hsa".
   { iExists _, _. iSplitR; [by eauto|]. iFrame. iPureIntro.
     rewrite filter_app filter_check_single_tag_eq Hst //. }
@@ -298,12 +322,12 @@ Proof.
     rewrite filter_app filter_check_single_tag_neq // app_nil_r //. }
 Qed.
 
-Lemma emit_state_res_lin_to_ret v v' t (m: gmap string (agree (leibnizO _)))
+Lemma tags_state_lin_to_ret v v' t (m: gmap string (agree (leibnizO _)))
     (tag:string) γs :
   m !! tag = Some (to_agree γs) →
-  own γs (◯E (AfterLin v v' : leibnizO _)) ∗ emit_state_res t m
+  own γs (◯E (AfterLin v v' : leibnizO _)) ∗ tags_state t m
   ==∗
-  emit_state_res (t ++ [(#tag, (#"ret", (v, v')))%V]) m.
+  tags_state (t ++ [(#tag, (#"ret", (v, v')))%V]) m.
 Proof.
   iIntros (Htag) "[Hs Hm]".
   iDestruct (big_sepM_delete _ _ tag with "Hm") as "(Htag & Hm)". done.
@@ -311,7 +335,7 @@ Proof.
   iDestruct "Hst" as %Hst.
   iDestruct (excl_auth_eq with "Hs Hsa") as %<-.
   iMod (excl_auth_upd _ _ _ _ Done with "Hs Hsa") as "[Hs Hsa]".
-  iFrame. iModIntro. unfold emit_state_res.
+  iFrame. iModIntro. unfold tags_state.
   rewrite (big_sepM_delete _ m tag) //; [].
   iSplitL "Hsa".
   { iExists _, _. iSplitR; [by eauto|]. iFrame. }
@@ -322,10 +346,10 @@ Proof.
     rewrite filter_app filter_check_single_tag_neq // app_nil_r //. }
 Qed.
 
-Lemma emit_state_res_lookup_sub γ (m m':gmap string (agree (leibnizO _)))
+Lemma tags_state_lookup_sub γ (m m':gmap string (agree (leibnizO _)))
     tag g t :
   m !! tag = Some (to_agree g) →
-  own γ (◯ m) -∗ own γ (● m') -∗ emit_state_res t m' -∗
+  own γ (◯ m) -∗ own γ (● m') -∗ tags_state t m' -∗
   ⌜m' !! tag = Some (to_agree g)⌝.
 Proof.
   iIntros (Hkv) "Hf Ha Hm".
@@ -343,6 +367,8 @@ Proof.
   apply leibniz_equiv in Hsub. simplify_eq. done.
 Qed.
 
+(** The big auxiliary invariant for wrapper proof. It corresponds to [I] in the
+    paper. *)
 Definition main_inv (γ γi γs γe: gname) (s: S) : iProp Σ :=
   own γs (●E (s:SO)) ∗
   own γ (●E ((γi, γs, γe) : leibnizO (gname * gname * gname))) ∗
@@ -353,7 +379,7 @@ Definition main_inv (γ γi γs γe: gname) (s: S) : iProp Σ :=
     trace_is (filter is_call_return β) ∗
     own γe (● M) ∗ own γe (◯ M) ∗
     ⌜ dom (gset string) M = list_to_set (tags (filter is_call_return β)) ⌝ ∗
-    emit_state_res β M.
+    tags_state β M.
 
 Definition is_P_wrap γ x : iProp Σ :=
   ∃ γi γs γe,
@@ -361,16 +387,16 @@ Definition is_P_wrap γ x : iProp Σ :=
     inv mainN (∃ s, main_inv γ γi γs γe s) ∗
     trace_inv traceN linearizable.
 
-Definition P_content_wrap γ s : iProp Σ :=
+Definition P_state_wrap γ s : iProp Σ :=
   ∃ γi γs γe,
-    P_content R_impl γi s ∗
+    P_state R_impl γi s ∗
     own γs (◯E (s:SO)) ∗
     own γ (◯E ((γi, γs, γe) : leibnizO (gname * gname * gname))).
 
 Definition Pinit : iProp Σ :=
     Pinit_impl ∗ trace_is [] ∗ trace_inv traceN linearizable.
 
-Definition R : repr Σ := Build_repr _ _ is_P_wrap P_content_wrap _.
+Definition R : repr Σ := Build_repr _ _ is_P_wrap P_state_wrap _.
 
 Lemma main_inv_gnames_eq γ γi γs γe γi' γs' γe' s :
   own γ (◯E ((γi', γs', γe') : leibnizO _)) -∗
@@ -406,7 +432,7 @@ Proof.
   iMod (inv_alloc mainN _ (∃ s, main_inv γ γi γs γe s)%I
     with "[Ht Ha Hwa Htksa Htksf]") as "HI".
   { iNext. iExists s_init. iFrame. iExists [], ∅. iFrame.
-    rewrite /emit_state_res big_sepM_empty /=.
+    rewrite /tags_state big_sepM_empty /=.
     iPureIntro. split_and!; eauto; try by constructor.
     { intros. exists #(), #(). apply prefix_nil. }
     by rewrite dom_empty_L //. }
@@ -415,6 +441,7 @@ Proof.
   iExists γi, γs, γe. iFrame.
 Qed.
 
+(* Main lemma for the first step of the instrumented [op] *)
 Lemma op_correct_call γ γi γs γe s :
   main_inv γ γi γs γe s -∗ ∃ α,
     trace_is α ∗
@@ -469,7 +496,7 @@ Proof using HNN'.
   { iPureIntro.
     rewrite filter_app tags_app /= list_to_set_app_L dom_insert_L -Htoks_dom.
     set_solver. }
-  rewrite /emit_state_res big_sepM_insert; last first.
+  rewrite /tags_state big_sepM_insert; last first.
   { eapply (@not_elem_of_dom _ _ (gset string)). typeclasses eauto.
     rewrite Htoks_dom. by apply not_elem_of_list_to_set. }
   iSplitL "Hgtsa".
@@ -485,6 +512,7 @@ Proof using HNN'.
   rewrite Htoks_dom elem_of_list_to_set in Hk |- * => Hk. done.
 Qed.
 
+(* Main lemma for the second step of [op]: linearization point *)
 Lemma op_correct_lin γ γi γs γe s s' γtag v v' tag
     (M: gmap string (agree (leibnizO _))) :
   M !! tag = Some (to_agree γtag) →
@@ -506,7 +534,7 @@ Proof.
   iDestruct "Htoks_dom" as %Htoks_dom'.
   iDestruct (excl_auth_upd _ _ _ _ s' with "HHf HHa") as ">[HHf HHa]".
 
-  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "HM Hγea Htoks") as %?.
+  iDestruct (tags_state_lookup_sub _ _ _ tag with "HM Hγea Htoks") as %?.
     by eauto.
 
   iAssert (⌜filter (λ v, check_tag tag v) β' = [(#tag, (#"call", v))%V]⌝)%I
@@ -515,7 +543,7 @@ Proof.
       by eauto.
     simplify_eq. iDestruct (excl_auth_eq with "Htag Hts") as %<-. eauto. }
 
-  iDestruct (emit_state_res_call_to_lin _ v' with "[$Htag $Htoks]")
+  iDestruct (tags_state_call_to_lin _ v' with "[$Htag $Htoks]")
     as ">[Htag Htoks]". done.
 
   iModIntro. unfold main_inv. iFrame.
@@ -527,6 +555,7 @@ Proof.
   rewrite filter_app app_nil_r. iFrame. done.
 Qed.
 
+(* Main lemma for the last step of [op] *)
 Lemma op_correct_ret γ γi γs γe s s' v v' (tag:string) γtag
     (M: gmap string (agree (leibnizO _))) :
   M !! tag = Some (to_agree γtag) →
@@ -545,7 +574,7 @@ Proof using HNN'.
   iDestruct "HI" as (β'' M') "(% & % & % & Ht & Hγea & Hγef' & Hdom_res & Hres)".
   iDestruct "Hdom_res" as %Hdom_res.
 
-  iDestruct (emit_state_res_lookup_sub _ _ _ tag with "HM Hγea Hres") as %HMtag.
+  iDestruct (tags_state_lookup_sub _ _ _ tag with "HM Hγea Hres") as %HMtag.
     by eauto.
 
   iAssert (⌜filter (λ v, check_tag tag v) β'' =
@@ -564,7 +593,7 @@ Proof using HNN'.
     by eexists; rewrite filter_app app_nil_r. }
 
   iIntros "Ht".
-  iDestruct (emit_state_res_lin_to_ret with "[$Htag $Hres]") as ">Hres".
+  iDestruct (tags_state_lin_to_ret with "[$Htag $Hres]") as ">Hres".
     done.
 
   iModIntro. iFrame. iExists (β'' ++ [(#tag, (#"ret", (v, v')))%V]), M'.
@@ -664,10 +693,14 @@ Qed.
 
 End Wrap.
 
+(** *** Adequacy *)
+
 Definition libN := nroot .@ "lib".
 Definition wrapN := nroot .@ "wrap".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
+(** At every step of the execution, the trace from the operational semantics is
+    [linearizable]. *)
 Lemma wrap_lib_correct `{model} (e: val → expr) (lib: val):
   (∀ `(heapG Σ), ⊢ lib_spec (↑libN) True lib) →
   (∀ `(heapG Σ), ⊢ ∀ P E lib, lib_spec E P lib -∗

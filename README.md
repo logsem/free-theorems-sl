@@ -20,7 +20,7 @@ online](https://logsem.github.io/intensional/html/toc.html).
 
 Bonus:
 - `stack_impl`: an example implementation of the stack library, satisfying the
-  specifications in `stack` and `stack_foreach`
+  specifications in `stack` and `traversable_stack`
 
 ### Language and logic
 

@@ -6,6 +6,10 @@ From intensional.heap_lang Require Import adequacy.
 Set Default Proof Using "Type".
 Implicit Types t : list val.
 
+(** ** Stack with a [foreach] operation (Section 5.4) *)
+
+(** *** Separation logic specification *)
+
 Notation trace := (list val) (only parsing).
 
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
@@ -49,6 +53,8 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
       foreach_spec Stack foreach
     | _ => False
     end.
+
+(** *** The trace property [good_trace]: "foreach calls the client function on elements stored in the stack, once each and in the right order". *)
 
 Section Trace.
 
@@ -95,6 +101,7 @@ Qed.
 
 End Trace.
 
+(** *** Definition and correctness of the wrapper code *)
 
 Module Wrap.
 Section S.
@@ -249,6 +256,7 @@ Qed.
 
 End S.
 
+(** Wrapping code for an entire library *)
 Definition lib (lib_impl: val): val :=
   match lib_impl with
   | (create_impl, push_impl, pop_impl, foreach_impl)%V =>
@@ -256,6 +264,7 @@ Definition lib (lib_impl: val): val :=
   | _ => #()
   end.
 
+(** Correctness of the wrapper at the level of the library *)
 Lemma correct `{!heapG Σ} N P0 (lib_impl: val):
   stacklib_spec P0 lib_impl -∗
   stacklib_spec (P0 ∗ trace_is [] ∗ trace_inv N good_trace) (lib lib_impl).
@@ -272,10 +281,13 @@ Qed.
 
 End Wrap.
 
+(** *** Adequacy *)
 
 Definition stacklibN := nroot .@ "traversable_stacklib".
 Definition empty_state : state := Build_state ∅ [] ∅.
 
+(** The trace property [good_trace] is satisfied at every step of the execution,
+    at the level of the operational semantics *)
 Lemma wrap_stacklib_correct (e: val → expr) (lib: val):
   (∀ `(heapG Σ), ⊢ stacklib_spec True lib) →
   (∀ `(heapG Σ), ⊢ ∀ P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
