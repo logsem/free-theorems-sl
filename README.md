@@ -7,7 +7,7 @@ Theorems from Separation Logic Specifications".
 
 The html rendering of the Coq scripts provides an easy way of navigating the
 development, without having to build anything. It is [available
-online](https://logsem.github.io/intensional/html/toc.html).
+online](https://logsem.github.io/free-theorems-sl/html/toc.html).
 
 ### Examples
 
