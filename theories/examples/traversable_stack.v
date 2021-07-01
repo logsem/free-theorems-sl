@@ -8,6 +8,10 @@ Implicit Types t : list val.
 
 (** ** Stack with a [foreach] operation (Section 5.4) *)
 
+(* Minor remark: compared to the paper, we assume a [create] function to
+   initialize the library, instead of a condition □ (P0 -∗ ∃ s, Stack [] s).
+   This is purely a matter of style. *)
+
 (** *** Separation logic specification *)
 
 Notation trace := (list val) (only parsing).
