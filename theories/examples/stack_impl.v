@@ -69,11 +69,11 @@ Proof.
 Qed.
 
 Lemma push_correct s x l :
-  {{{ stack_val l s }}}
+  {{{ stack_val l s ∗ ⌜x ≠ #()⌝ }}}
     push s x
   {{{ RET #(); stack_val (x :: l) s }}}.
 Proof.
-  rewrite /push. iIntros (φ) "Hs Hφ".
+  rewrite /push. iIntros (φ) "(Hs & ?) Hφ".
   wp_pures. rewrite {1}/stack_val.
   iDestruct "Hs" as (ℓ lv) "(-> & ? & ?)".
   wp_load. wp_pures.

@@ -19,7 +19,7 @@ Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (c
 
 Definition push_spec `{!heapG Σ} (Stack: list val → val → iProp Σ) (push: val) : iProp Σ :=
   ∀ l s x,
-     {{{ Stack l s }}}
+     {{{ Stack l s ∗ ⌜x ≠ #()⌝ }}}
        push s x
      {{{ RET #(); Stack (x :: l) s }}}.
 
@@ -158,7 +158,7 @@ Lemma push_correct :
   push_spec stack_val push.
 Proof.
   iIntros "#push_impl_spec" (l s x) "!>".
-  iIntros (φ) "Hs Hφ". unfold push.
+  iIntros (φ) "(Hs & %) Hφ". unfold push.
   iDestruct "Hs" as "(Hs & #HI & Htr)". iDestruct "Htr" as (t) "(Hgood & Ht)".
   iDestruct "Hgood" as %Hgood.
   wp_pures. wp_bind (Emit _).
@@ -167,7 +167,7 @@ Proof.
     by eapply good_trace_for_push, Hgood.
     apply prefix_app. eexists; eauto. }
   iIntros "!> Ht". wp_pures. wp_bind (push_impl _ _).
-  iApply ("push_impl_spec" with "Hs"). iIntros "!> Hs".
+  iApply ("push_impl_spec" with "[Hs]"). by iFrame. iIntros "!> Hs".
   wp_pures.
   iApply (wp_emit with "[$Ht $HI]"); eauto.
   { do 2 eexists. split; [reflexivity|].
