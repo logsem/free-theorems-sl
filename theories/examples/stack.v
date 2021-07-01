@@ -9,9 +9,9 @@ Implicit Types t : list val.
 (** ** A simple stack (Section 2) *)
 (** *** The stack specification in separation logic *)
 
-(* Minor remark: compared to the paper, we assume a [create] function to
-   initialize the library, instead of a condition □ (P0 -∗ ∃ s, Stack [] s).
-   This is purely a matter of style. *)
+(** Minor remark: compared to the paper, we assume a [create] function to
+    initialize the library, instead of a condition □ (P0 -∗ ∃ s, Stack [] s).
+    This is purely a matter of style. *)
 
 Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
   {{{ P0 }}}
