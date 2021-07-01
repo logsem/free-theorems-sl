@@ -33,7 +33,8 @@ gh-pages: html
 	rm -rf html
 	mv html_ html
 	git add html
-	git ci -m "."
+	git ci -m "." || true
+	git push origin "gh-pages:gh-pages"
 	git checkout master
 .PHONY: gh-pages
 
