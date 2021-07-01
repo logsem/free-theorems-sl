@@ -95,6 +95,19 @@
 Specialized adequacy theorem to establish trace properties as free theorems.
    This corresponds to Theorem 4.1 in the paper.
 
+<div class="paragraph"> </div>
+
+   Minor remark 1: in the paper, the state of the operational semantics is
+   represented as a pair of a heap and a trace. Here, we instead have σ,σ' be
+   inhabitants of the <span class="inlinecode"><a class="idref" href="intensional.heap_lang.lang.html#heap_lang.state"><span class="id" title="record">state</span></a></span> record type, and we use the <span class="inlinecode"><a class="idref" href="intensional.heap_lang.lang.html#heap_lang.trace"><span class="id" title="projection">trace</span></a></span> projection to
+   get the trace of a given state.
+
+<div class="paragraph"> </div>
+
+   Minor remark 2: the following theorem is slightly more general than the one
+   from the paper, as we only require the trace property to hold of the trace of
+   the initial state σ, while the theorem in the paper is specialized to the
+   case where the initial trace is the empty trace. 
 </div>
 <div class="code">
 <span class="id" title="keyword">Lemma</span> <a id="module_invariance" class="idref" href="#module_invariance"><span class="id" title="lemma">module_invariance</span></a> {<a id="01696af10e39986da2e9d1f22eb04999" class="idref" href="#01696af10e39986da2e9d1f22eb04999"><span class="id" title="binder">Σ</span></a>} `{<a id="H:38" class="idref" href="#H:38"><span class="id" title="binder">heapPreG</span></a> <a id="H:38" class="idref" href="#H:38"><span class="id" title="binder">Σ</span></a>} (<a id="N:39" class="idref" href="#N:39"><span class="id" title="binder">N</span></a>: <a class="idref" href="https://plv.mpi-sws.org/coqdoc/stdpp//stdpp.namespaces.html#namespace"><span class="id" title="definition">namespace</span></a>)<br/>
