@@ -43,13 +43,13 @@
 <a id="lab1"></a><h2 class="section">A simple stack (Section 2)</h2>
 <a id="lab2"></a><h3 class="section">The stack specification in separation logic</h3>
 
+<div class="paragraph"> </div>
+
+ Minor remark: compared to the paper, we assume a <span class="inlinecode"><a class="idref" href="intensional.examples.stack_impl.html#Stack_impl.create"><span class="id" title="definition">create</span></a></span> function to
+    initialize the library, instead of a condition □ (P0 -∗ ∃ s, Stack <font size=-2>&#9744;</font> s).
+    This is purely a matter of style. 
 </div>
 <div class="code">
-
-<br/>
-<span class="comment">(*&nbsp;Minor&nbsp;remark:&nbsp;compared&nbsp;to&nbsp;the&nbsp;paper,&nbsp;we&nbsp;assume&nbsp;a&nbsp;<span class="inlinecode"><span class="id" title="var">create</span></span>&nbsp;function&nbsp;to<br/>
-&nbsp;&nbsp;&nbsp;initialize&nbsp;the&nbsp;library,&nbsp;instead&nbsp;of&nbsp;a&nbsp;condition&nbsp;□&nbsp;(P0&nbsp;-∗&nbsp;∃&nbsp;s,&nbsp;Stack&nbsp;<span class="inlinecode"></span>&nbsp;s).<br/>
-&nbsp;&nbsp;&nbsp;This&nbsp;is&nbsp;purely&nbsp;a&nbsp;matter&nbsp;of&nbsp;style.&nbsp;*)</span><br/>
 
 <br/>
 <span class="id" title="keyword">Definition</span> <a id="create_spec" class="idref" href="#create_spec"><span class="id" title="definition">create_spec</span></a> `{<a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">!</span></a><a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">heapG</span></a> <a id="heapG0:2" class="idref" href="#heapG0:2"><span class="id" title="binder">Σ</span></a>} <a id="P0:3" class="idref" href="#P0:3"><span class="id" title="binder">P0</span></a> (<a id="Stack:4" class="idref" href="#Stack:4"><span class="id" title="binder">Stack</span></a>: <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a> <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a> <a class="idref" href="http://coq.inria.fr/distrib/V8.12.1/stdlib//Coq.Unicode.Utf8_core.html#c41c566ddac4c1298b9e7dd2bae1c794"><span class="id" title="notation">→</span></a> <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.base_logic.lib.iprop.html#iProp_solution.iProp"><span class="id" title="abbreviation">iProp</span></a> <a class="idref" href="intensional.examples.stack.html#0101b9beac487b383a5ba2a8f6922788"><span class="id" title="variable">Σ</span></a>) (<a id="create:5" class="idref" href="#create:5"><span class="id" title="binder">create</span></a>: <a class="idref" href="intensional.heap_lang.lang.html#heap_lang.val"><span class="id" title="inductive">val</span></a>) : <a class="idref" href="https://plv.mpi-sws.org/coqdoc/iris//iris.base_logic.lib.iprop.html#iProp_solution.iProp"><span class="id" title="abbreviation">iProp</span></a> <a class="idref" href="intensional.examples.stack.html#0101b9beac487b383a5ba2a8f6922788"><span class="id" title="variable">Σ</span></a> :=<br/>
