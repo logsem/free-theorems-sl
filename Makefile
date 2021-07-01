@@ -25,6 +25,7 @@ html: Makefile.coq
 	rm -rf html
 	$(MAKE) -f Makefile.coq html
 	cp $(EXTRA_DIR)/resources/* html
+.PHONY: html
 
 gh-pages: html
 	cp -r html html_
@@ -34,6 +35,7 @@ gh-pages: html
 	git add html
 	git ci -m "."
 	git checkout master
+.PHONY: gh-pages
 
 # Create Coq Makefile.
 Makefile.coq: _CoqProject Makefile
