@@ -37,6 +37,26 @@ the additional trace primitives and corresponding reasoning principles.
 
 The remaining unlisted files typically contain helper lemmas or tactics.
 
+### Notations
+
+Some notations differ between the Coq formalization and the paper. Here is a
+short cheatsheet of the common Coq notations that we use:
+
+- Hoare triples are written as `{{{ P }}} e {{{ RET r; Q }}}`, where `P` is the
+  pre-condition, `Q` the post-condition, and `r` is a binder naming the return
+  value in `Q`.
+- `# x` denotes a (deep embedded) value of the programming language, for the
+  literal `x`. For instance, `#()` is the "unit" value, `# 3` is the integer
+  value 3, and `# "abc"` is the value for the event tag `"abc"`.
+- `(a, b)%V` denotes a deep embedded value of the programming language, which is
+  the pair of values `a` and `b`. This is to distinguish with `(a, b)` which is
+  a pair in Coq.
+- `_ !! _` corresponds to the "lookup" operation. In particular, if `t` is a
+  trace (a list of events), `t !! i` looks up the `i`-th value of the trace (and
+  returns an option as trace might be of length less than `i`).
+- `_ ++ _` is the list concatenation operation. We use `t ++ [e]` for the trace
+  adding event `e` at the end of trace `t`
+- the `trace_is` predicate corresponds to "trace" in the paper
 
 ## Building the proofs
 

@@ -38,7 +38,9 @@ Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
     | _ => False
     end.
 
-(** *** The trace property [good_stack_trace]: "each non-unit value returned by [pop] was an argument of a previous [push]". *)
+(** *** The trace property [good_stack_trace]: "each non-unit value returned by [pop] was an argument of a previous [push]".
+This corresponds to language L from the paper.
+*)
 
 Section Trace.
 

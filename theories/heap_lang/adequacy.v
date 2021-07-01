@@ -56,7 +56,16 @@ Qed.
 
 (** Specialized adequacy theorem to establish trace properties as free theorems.
    This corresponds to Theorem 4.1 in the paper.
-*)
+
+   Minor remark 1: in the paper, the state of the operational semantics is
+   represented as a pair of a heap and a trace. Here, we instead have σ,σ' be
+   inhabitants of the [state] record type, and we use the [trace] projection to
+   get the trace of a given state.
+
+   Minor remark 2: the following theorem is slightly more general than the one
+   from the paper, as we only require the trace property to hold of the trace of
+   the initial state σ, while the theorem in the paper is specialized to the
+   case where the initial trace is the empty trace. *)
 Lemma module_invariance {Σ} `{heapPreG Σ} (N: namespace)
   (Φ: ∀ `{heapG Σ}, iProp Σ → val → iProp Σ)  (* Module specification *)
   (P0: iProp Σ) (* Initial resources required by the module *)
