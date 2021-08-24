@@ -36,7 +36,7 @@ Qed.
 Definition eventO := leibnizO val.
 Definition traceO := leibnizO (list val).
 
-Class traceG Σ := TraceG {
+Class traceGS Σ := TraceGS {
   trace_hist_inG :> inG Σ (authR (gmapUR nat (agreeR eventO)));
   trace_hist_name : gname;
   trace_inG :> inG Σ (frac_authR (agreeR traceO));
@@ -52,14 +52,14 @@ Class trace_preG Σ := TracePreG {
   trace_preG_inG :> inG Σ (frac_authR (agreeR traceO));
 }.
 
-Instance subG_tracePreG : subG traceΣ Σ → trace_preG Σ.
+Instance subG_tracePreG {Σ} : subG traceΣ Σ → trace_preG Σ.
 Proof. solve_inG. Qed.
 
-Class heapG Σ := HeapG {
-  heapG_invG : invG Σ;
-  heapG_gen_heapG :> gen_heapG loc val Σ;
-  heapG_proph_mapG :> proph_mapG proph_id (val * val) Σ;
-  heapG_traceG :> traceG Σ;
+Class heapGS Σ := HeapGS {
+  heapG_invG : invGS Σ;
+  heapG_gen_heapG :> gen_heapGS loc val Σ;
+  heapG_proph_mapG :> proph_mapGS proph_id (val * val) Σ;
+  heapG_traceG :> traceGS Σ;
 }.
 
 (** Trace-related resources.
@@ -70,29 +70,29 @@ Class heapG Σ := HeapG {
      [traceInv] in the paper);
    - [hist] describes a snapshot of the trace, as it was sometime in the past
 *)
-Definition trace_auth `{hT: traceG Σ} (t: list val) :=
+Definition trace_auth `{hT: traceGS Σ} (t: list val) :=
   (own trace_name (●F (to_agree (t: traceO))))%I.
-Definition hist `{hT: traceG Σ} (t: list val) :=
+Definition hist `{hT: traceGS Σ} (t: list val) :=
   own trace_hist_name (◯ (gmap_of_trace 0 t)).
-Definition trace_half_frag `{hT:traceG} (t: list val) :=
+Definition trace_half_frag `{hT:traceGS} (t: list val) :=
   own trace_name (◯F{1/2} (to_agree (t: traceO))).
-Definition trace_is `{hT: traceG Σ} (t: list val) :=
+Definition trace_is `{hT: traceGS Σ} (t: list val) :=
   (trace_half_frag t ∗ own trace_hist_name (● gmap_of_trace 0 t) ∗ hist t)%I.
 
-Definition trace_inv `{hT:traceG Σ, hI:invG Σ} (N: namespace) (I: list val → Prop) :=
+Definition trace_inv `{hT:traceGS Σ, hI:invGS Σ} (N: namespace) (I: list val → Prop) :=
   inv N (∃ t, trace_half_frag t ∗ ⌜I t⌝).
 
 (** Reasoning rules for the trace predicates *)
 
-Instance hist_persistent `{traceG Σ} (t: list val): Persistent (hist t) := _.
+Instance hist_persistent `{traceGS Σ} (t: list val): Persistent (hist t) := _.
 
-Lemma alloc_hist `{traceG Σ} t :
+Lemma alloc_hist `{traceGS Σ} t :
   trace_is t -∗ trace_is t ∗ hist t.
 Proof.
   rewrite /trace_is /hist. iIntros "(? & ? & #H)". iFrame "H ∗".
 Qed.
 
-Lemma trace_auth_half_frag_agree `{traceG Σ} t t':
+Lemma trace_auth_half_frag_agree `{traceGS Σ} t t':
   trace_auth t -∗ trace_half_frag t' -∗ ⌜t = t'⌝.
 Proof.
   rewrite /trace_auth /trace_is.
@@ -103,13 +103,13 @@ Proof.
   apply to_agree_included, leibniz_equiv in Hi. eauto.
 Qed.
 
-Lemma trace_agree `{traceG Σ} t t':
+Lemma trace_agree `{traceGS Σ} t t':
   trace_auth t -∗ trace_is t' -∗ ⌜t = t'⌝.
 Proof.
   iIntros "H1 (H2 & _ & _)". iApply (trace_auth_half_frag_agree with "H1 H2").
 Qed.
 
-Lemma trace_half_frag_agree `{traceG Σ} t t':
+Lemma trace_half_frag_agree `{traceGS Σ} t t':
   trace_half_frag t -∗ trace_is t' -∗ ⌜t = t'⌝.
 Proof.
   rewrite /trace_is /trace_half_frag.
@@ -117,10 +117,11 @@ Proof.
   iDestruct (own_valid_2 with "H1 H2") as "H".
   rewrite -frac_auth_frag_op Qp_half_half.
   iDestruct "H" as %Hv. rewrite frac_auth_frag_valid in Hv |- * => Hv.
-  destruct Hv as [_ Hv]. apply agree_op_inv', leibniz_equiv in Hv. eauto.
+  destruct Hv as [_ Hv].
+  apply to_agree_op_inv, leibniz_equiv in Hv. eauto.
 Qed.
 
-Lemma trace_add_event `{traceG Σ} t (e: val) :
+Lemma trace_add_event `{traceGS Σ} t (e: val) :
   trace_auth t -∗ trace_is t -∗ trace_half_frag t ==∗
   trace_auth (t ++ [e]) ∗ trace_is (t ++ [e]) ∗ trace_half_frag (t ++ [e]).
 Proof.
@@ -140,7 +141,7 @@ Proof.
   Unshelve. all: typeclasses eauto.
 Qed.
 
-Lemma gmap_of_trace_hist_valid_prefix `{traceG Σ} {A} n (t: list A) h :
+Lemma gmap_of_trace_hist_valid_prefix `{traceGS Σ} {A} n (t: list A) h :
   ✓ gmap_of_trace n t →
   gmap_of_trace n h ≼ gmap_of_trace n t →
   h `prefix_of` t.
@@ -173,16 +174,16 @@ Proof.
   Unshelve. all: typeclasses eauto.
 Qed.
 
-Lemma hist_trace_is_prefix `{traceG Σ} t h :
+Lemma hist_trace_is_prefix `{traceGS Σ} t h :
   trace_is t -∗ hist h -∗ ⌜ h `prefix_of` t ⌝.
 Proof.
   rewrite /trace_is /hist. iIntros "(H1 & H2 & H3) H4".
   iDestruct (own_op with "[$H2 $H4]") as "H".
-  iDestruct (own_valid with "H") as %[Hsub Hv]%auth_both_valid.
+  iDestruct (own_valid with "H") as %[Hsub Hv]%auth_both_valid_discrete.
   iPureIntro. eapply gmap_of_trace_hist_valid_prefix; eauto.
 Qed.
 
-Lemma trace_is_inv `{traceG Σ, invG Σ} t N I :
+Lemma trace_is_inv `{traceGS Σ, invGS Σ} t N I :
   trace_is t -∗ trace_inv N I ={⊤}=∗ trace_is t ∗ ⌜ I t ⌝.
 Proof.
   iIntros "Ht Hi". unfold trace_inv.
@@ -200,7 +201,7 @@ Proof.
 Qed.
 
 Lemma trace_auth_init `{hT: trace_preG Σ} (t: list val) :
-  ⊢ |==> ∃ H: traceG Σ, trace_auth t ∗ trace_is t ∗ trace_half_frag t.
+  ⊢ |==> ∃ H: traceGS Σ, trace_auth t ∗ trace_is t ∗ trace_half_frag t.
 Proof.
   iMod (own_alloc (●F (to_agree (t: traceO)) ⋅ ◯F (to_agree (t: traceO)))) as (γ) "Hγ".
   by apply frac_auth_valid.
@@ -208,28 +209,27 @@ Proof.
   iMod (own_alloc (● gmap_of_trace 0 t ⋅ ◯ gmap_of_trace 0 t)) as (γh) "Hγh".
   apply auth_both_valid. split; [ done | by apply gmap_of_trace_valid].
   rewrite own_op. iDestruct "Hγh" as "[? ?]".
-  iModIntro. iExists (TraceG _ _ γh _ γ).
+  iModIntro. iExists (TraceGS _ _ γh _ γ).
   rewrite /trace_auth /trace_is /trace_half_frag /hist. iFrame.
   rewrite -own_op -frac_auth_frag_op Qp_half_half agree_idemp //.
 Qed.
 
-Instance heapG_irisG `{!heapG Σ} : irisG heap_lang Σ := {
+Instance heapG_irisG `{!heapGS Σ} : irisGS heap_lang Σ := {
   iris_invG := heapG_invG;
-  state_interp σ κs _ :=
-    (gen_heap_ctx σ.(heap)
+  state_interp σ _ κs _ :=
+    (gen_heap_interp σ.(heap)
      ∗ trace_auth σ.(trace)
-     ∗ proph_map_ctx κs σ.(used_proph_id))%I;
+     ∗ proph_map_interp κs σ.(used_proph_id))%I;
   fork_post _ := True%I;
+  num_laters_per_step _ := 0%nat;
+  state_interp_mono _ _ _ _ := fupd_intro _ _
 }.
 
 (** Override the notations so that scopes and coercions work out *)
-Notation "l ↦{ q } v" := (mapsto (L:=loc) (V:=val) l q v%V)
-  (at level 20, q at level 50, format "l  ↦{ q }  v") : bi_scope.
+Notation "l ↦{ dq } v" := (mapsto (L:=loc) (V:=val) l dq v%V)
+  (at level 20, format "l  ↦{ dq }  v") : bi_scope.
 Notation "l ↦ v" :=
-  (mapsto (L:=loc) (V:=val) l 1 v%V) (at level 20) : bi_scope.
-Notation "l ↦{ q } -" := (∃ v, l ↦{q} v)%I
-  (at level 20, q at level 50, format "l  ↦{ q }  -") : bi_scope.
-Notation "l ↦ -" := (l ↦{1} -)%I (at level 20) : bi_scope.
+  (mapsto (L:=loc) (V:=val) l (DfracOwn 1) v%V) (at level 20) : bi_scope.
 
 (** The tactic [inv_head_step] performs inversion on hypotheses of the shape
 [head_step]. The tactic will discharge head-reductions starting from values, and
@@ -351,9 +351,9 @@ To make sure that [wp_rec] and [wp_lam] do reduce lambdas/recs that are hidden
 behind a definition, we activate [AsRecV_recv] by hand in these tactics. *)
 Class AsRecV (v : val) (f x : binder) (erec : expr) :=
   as_recv : v = RecV f x erec.
-Hint Mode AsRecV ! - - - : typeclass_instances.
+#[export] Hint Mode AsRecV ! - - - : typeclass_instances.
 Definition AsRecV_recv f x e : AsRecV (RecV f x e) f x e := eq_refl.
-Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
+#[export] Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
   apply AsRecV_recv : typeclass_instances.
 
 Instance pure_recc f x (erec : expr) :
@@ -415,7 +415,7 @@ Instance pure_case_inr v e1 e2 :
 Proof. solve_pure_exec. Qed.
 
 Section lifting.
-Context `{!heapG Σ}.
+Context `{!heapGS Σ}.
 Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val → iProp Σ.
 Implicit Types efs : list expr.
@@ -436,7 +436,7 @@ Proof.
   iDestruct "Hi" as (tr') "[Htr' _]".
   iDestruct (trace_half_frag_agree with "Htr' Ht") as %->.
   iApply wp_lift_atomic_head_step; [done|].
-  iIntros (σ1 κ κs n) "(? & Hta & ?) !>"; iSplit; first by eauto.
+  iIntros (σ1 ? κ κs n) "(? & Hta & ?) !>"; iSplit; first by eauto.
   iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
   iDestruct (trace_agree with "Hta Ht") as %<-.
   iMod (trace_add_event with "Hta Ht Htr'") as "(Hta&Ht&Htr')".
@@ -458,7 +458,7 @@ Proof.
   iDestruct "Hi" as (tr') "[Htr' _]".
   iDestruct (trace_half_frag_agree with "Htr' Ht") as %->.
   iApply wp_lift_atomic_head_step; [done|].
-  iIntros (σ1 κ κs n) "(? & Hta & ?) !>".
+  iIntros (σ1 ? κ κs n) "(? & Hta & ?) !>".
   pose proof (infinite_is_fresh (tags σ1.(trace))).
   iSplit; [ by eauto |]. iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
   iDestruct (trace_agree with "Hta Ht") as %<-.
@@ -473,7 +473,7 @@ Lemma wp_fork s E e Φ :
   ▷ WP e @ s; ⊤ {{ _, True }} -∗ ▷ Φ (LitV LitUnit) -∗ WP Fork e @ s; E {{ Φ }}.
 Proof.
   iIntros "He HΦ". iApply wp_lift_atomic_head_step; [done|].
-  iIntros (σ1 κ κs n) "Hσ !>"; iSplit; first by eauto.
+  iIntros (σ1 ? κ κs n) "Hσ !>"; iSplit; first by eauto.
   iNext; iIntros (v2 σ2 efs Hstep); inv_head_step. by iFrame.
 Qed.
 
@@ -481,7 +481,7 @@ Lemma twp_fork s E e Φ :
   WP e @ s; ⊤ [{ _, True }] -∗ Φ (LitV LitUnit) -∗ WP Fork e @ s; E [{ Φ }].
 Proof.
   iIntros "He HΦ". iApply twp_lift_atomic_head_step; [done|].
-  iIntros (σ1 κs n) "Hσ !>"; iSplit; first by eauto.
+  iIntros (σ1 ? κs n) "Hσ !>"; iSplit; first by eauto.
   iIntros (κ v2 σ2 efs Hstep); inv_head_step. by iFrame.
 Qed.
 
@@ -527,9 +527,9 @@ Lemma twp_allocN_seq s E v n :
       (l +ₗ (i : nat)) ↦ v ∗ meta_token (l +ₗ (i : nat)) ⊤ }]].
 Proof.
   iIntros (Hn Φ) "_ HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs k) "[Hσ Hκs] !>"; iSplit; first by destruct n; auto with lia.
+  iIntros (σ1 ? κs k) "[Hσ Hκs] !>"; iSplit; first by destruct n; auto with lia.
   iIntros (κ v2 σ2 efs Hstep); inv_head_step.
-  iMod (gen_heap_alloc_gen _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ")
+  iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ")
     as "(Hσ & Hl & Hm)".
   { apply heap_array_map_disjoint.
     rewrite replicate_length Z2Nat.id; auto with lia. }
@@ -565,7 +565,7 @@ Lemma twp_load s E l q v :
   [[{ l ↦{q} v }]] Load (Val $ LitV $ LitLoc l) @ s; E [[{ RET v; l ↦{q} v }]].
 Proof.
   iIntros (Φ) "Hl HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
+  iIntros (σ1 ? κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
   iSplit; first by eauto. iIntros (κ v2 σ2 efs Hstep); inv_head_step.
   iModIntro; iSplit=> //. iSplit; first done. iFrame. by iApply "HΦ".
 Qed.
@@ -581,7 +581,7 @@ Lemma twp_store s E l v' v :
   [[{ RET LitV LitUnit; l ↦ v }]].
 Proof.
   iIntros (Φ) "Hl HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
+  iIntros (σ1 ? κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
   iSplit; first by eauto. iIntros (κ v2 σ2 efs Hstep); inv_head_step.
   iMod (@gen_heap_update with "Hσ Hl") as "[$ Hl]".
   iModIntro. iSplit=>//. iSplit; first done. iFrame. by iApply "HΦ".
@@ -600,7 +600,7 @@ Lemma twp_cmpxchg_fail s E l q v' v1 v2 :
   [[{ RET PairV v' (LitV $ LitBool false); l ↦{q} v' }]].
 Proof.
   iIntros (?? Φ) "Hl HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
+  iIntros (σ1 ? κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
   iSplit; first by eauto. iIntros (κ v2' σ2 efs Hstep); inv_head_step.
   rewrite bool_decide_false //.
   iModIntro; iSplit=> //. iSplit; first done. iFrame. by iApply "HΦ".
@@ -620,7 +620,7 @@ Lemma twp_cmpxchg_suc s E l v1 v2 v' :
   [[{ RET PairV v' (LitV $ LitBool true); l ↦ v2 }]].
 Proof.
   iIntros (?? Φ) "Hl HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
+  iIntros (σ1 ? κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
   iSplit; first by eauto. iIntros (κ v2' σ2 efs Hstep); inv_head_step.
   rewrite bool_decide_true //.
   iMod (@gen_heap_update with "Hσ Hl") as "[$ Hl]".
@@ -640,7 +640,7 @@ Lemma twp_faa s E l i1 i2 :
   [[{ RET LitV (LitInt i1); l ↦ LitV (LitInt (i1 + i2)) }]].
 Proof.
   iIntros (Φ) "Hl HΦ". iApply twp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
+  iIntros (σ1 ? κs n) "[Hσ Hκs] !>". iDestruct (@gen_heap_valid with "Hσ Hl") as %?.
   iSplit; first by eauto. iIntros (κ e2 σ2 efs Hstep); inv_head_step.
   iMod (@gen_heap_update with "Hσ Hl") as "[$ Hl]".
   iModIntro. iSplit=>//. iSplit; first done. iFrame. by iApply "HΦ".
@@ -659,7 +659,7 @@ Lemma wp_new_proph s E :
   {{{ pvs p, RET (LitV (LitProphecy p)); proph p pvs }}}.
 Proof.
   iIntros (Φ) "_ HΦ". iApply wp_lift_atomic_head_step_no_fork; first done.
-  iIntros (σ1 κ κs n) "[Hσ [Ht HR]] !>". iSplit; first by eauto.
+  iIntros (σ1 ? κ κs n) "[Hσ [Ht HR]] !>". iSplit; first by eauto.
   iNext; iIntros (v2 σ2 efs Hstep). inv_head_step.
   iMod (proph_map_new_proph p with "HR") as "[HR Hp]"; first done.
   iModIntro; iSplit=> //. iFrame. by iApply "HΦ".
@@ -714,19 +714,19 @@ Proof.
   (* TODO we should try to use a generic lifting lemma (and avoid [wp_unfold])
      here, since this breaks the WP abstraction. *)
   iIntros (A He) "Hp WPe". rewrite !wp_unfold /wp_pre /= He. simpl in *.
-  iIntros (σ1 κ κs n) "[Hσ Hκ]". destruct κ as [|[p' [w' v']] κ' _] using rev_ind.
-  - iMod ("WPe" $! σ1 [] κs n with "[$Hσ $Hκ]") as "[Hs WPe]". iModIntro. iSplit.
+  iIntros (σ1 ns κ κs n) "[Hσ Hκ]". destruct κ as [|[p' [w' v']] κ' _] using rev_ind.
+  - iMod ("WPe" $! σ1 ns [] κs n with "[$Hσ $Hκ]") as "[Hs WPe]". iModIntro. iSplit.
     { iDestruct "Hs" as "%". iPureIntro. destruct s; [ by apply resolve_reducible | done]. }
     iIntros (e2 σ2 efs step). exfalso. apply step_resolve in step; last done.
     inversion step. match goal with H: ?κs ++ [_] = [] |- _ => by destruct κs end.
   - rewrite -app_assoc.
-    iMod ("WPe" $! σ1 _ _ n with "[$Hσ $Hκ]") as "[Hs WPe]". iModIntro. iSplit.
+    iMod ("WPe" $! σ1 ns _ _ n with "[$Hσ $Hκ]") as "[Hs WPe]". iModIntro. iSplit.
     { iDestruct "Hs" as %?. iPureIntro. destruct s; [ by apply resolve_reducible | done]. }
     iIntros (e2 σ2 efs step). apply step_resolve in step; last done.
     inversion step; simplify_list_eq.
     iMod ("WPe" $! (Val w') σ2 efs with "[%]") as "WPe".
     { by eexists [] _ _. }
-    iModIntro. iNext. iMod "WPe" as "[[$ [$ Hκ]] WPe]".
+    iModIntro. iNext. iModIntro. iMod "WPe" as ">[[$ [$ Hκ]] WPe]".
     iMod (proph_map_resolve_proph p' (w',v') κs with "[$Hκ $Hp]") as (vs' ->) "[$ HPost]".
     iModIntro. rewrite !wp_unfold /wp_pre /=. iDestruct "WPe" as "[HΦ $]".
     iMod "HΦ". iModIntro. by iApply "HΦ".

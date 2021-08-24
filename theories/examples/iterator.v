@@ -11,22 +11,22 @@ Implicit Types t : list val.
 
 (** *** Separation logic specification *)
 
-Definition size_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (size: val): iProp Σ :=
+Definition size_spec `{!heapGS Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (size: val): iProp Σ :=
   ∀ c, {{{ Coll c }}} size #() {{{ x, RET x; Coll c }}}.
 
-Definition add_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (add: val): iProp Σ :=
+Definition add_spec `{!heapGS Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (add: val): iProp Σ :=
   ∀ (c x: val), {{{ Coll c }}} add x {{{ c', RET #(); Coll c' }}}.
 
-Definition remove_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (remove: val): iProp Σ :=
+Definition remove_spec `{!heapGS Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (remove: val): iProp Σ :=
   ∀ (c x: val), {{{ Coll c }}} remove x {{{ c', RET #(); Coll c' }}}.
 
-Definition iterator_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (iterator: val): iProp Σ :=
+Definition iterator_spec `{!heapGS Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (iterator: val): iProp Σ :=
   ∀ c, {{{ Coll c }}} iterator #() {{{ r, RET r; Coll c ∗ Iter r c }}}.
 
-Definition next_spec `{!heapG Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (next: val): iProp Σ :=
+Definition next_spec `{!heapGS Σ} (Coll: val → iProp Σ) (Iter: val → val → iProp Σ) (next: val): iProp Σ :=
   ∀ (c x: val), {{{ Coll c ∗ Iter x c }}} next x {{{ RET #(); Coll c ∗ Iter x c }}}.
 
-Definition iterlib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
+Definition iterlib_spec `{!heapGS Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
   ∃ (Coll: val → iProp Σ) (Iter: val → val → iProp Σ),
   □ (P0 -∗ ∃ (c:val), Coll c) ∗
   match lib with
@@ -91,7 +91,7 @@ Module Wrap.
 
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ}.
+Context `{heapGS Σ}.
 Context (N: namespace).
 
 Context (Coll_impl: val → iProp Σ) (Iter_impl: val → val → iProp Σ).
@@ -221,7 +221,7 @@ Definition lib (lib_impl: val): val :=
   end.
 
 (** Correctness of the wrapper code *)
-Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
+Lemma correct `{!heapGS Σ} N P0 (lib_impl: val) :
   iterlib_spec P0 lib_impl -∗
   iterlib_spec (P0 ∗ trace_is [] ∗ trace_inv N iterator_trace) (lib lib_impl).
 Proof.
@@ -248,21 +248,21 @@ Definition empty_state : state := Build_state ∅ [] ∅.
 
 (** The trace property [iterator_trace] is satisfied at every step of the
     execution at the level of the operational semantics. *)
-Lemma wrap_iterlib_correct (e: val → expr) (lib: val):
-  (∀ `(heapG Σ), ⊢ iterlib_spec True lib) →
-  (∀ `(heapG Σ), ⊢ ∀ P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_iterlib_correct `{heapGpreS Σ} (e: val → expr) (lib_init: expr) (lib: val) (P0: iProp Σ):
+  (∀ `(heapGS Σ), ⊢ {{{ True }}} lib_init {{{ v, RET v; P0 }}}) →
+  (∀ `(heapGS Σ), ⊢ iterlib_spec P0 lib) →
+  (∀ `(heapGS Σ), ⊢ ∀ P lib, iterlib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
-    rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
+    rtc erased_step ([(lib_init;; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     iterator_trace (trace σ').
 Proof.
-  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
-  intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
-                             iterlibN (@iterlib_spec Σ) True e #() (Wrap.lib lib)
+  intros Hinit Hlib Hctx σ' e' Hsteps.
+  eapply (@module_invariance Σ (HeapGpreS Σ _ _ _ _)
+                             iterlibN (@iterlib_spec Σ) P0 e lib_init (Wrap.lib lib)
                             iterator_trace empty_state).
   { cbn. apply iterator_trace_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
-  { iIntros (? _) "!>". iApply wp_value; eauto. }
+  { iIntros (? ? ?) "!>". iApply Hinit; eauto. }
   { iIntros (?). iApply Wrap.correct. iApply Hlib. }
   eauto.
 Qed.

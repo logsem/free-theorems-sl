@@ -12,7 +12,7 @@ From intensional Require stack traversable_stack.
 Module Stack_impl.
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ}.
+Context `{heapGS Σ}.
 
 Definition create : val :=
   λ: "u", ref (InjL #()).

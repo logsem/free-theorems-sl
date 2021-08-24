@@ -11,16 +11,16 @@ Implicit Types t : list val.
 
 (** *** Separation logic specification *)
 
-Definition open_spec `{!heapG Σ} (isClosed isOpen: iProp Σ) (open: val): iProp Σ :=
+Definition open_spec `{!heapGS Σ} (isClosed isOpen: iProp Σ) (open: val): iProp Σ :=
   {{{ isClosed }}} open #() {{{ RET #(); isOpen }}}.
 
-Definition close_spec `{!heapG Σ} (isClosed isOpen: iProp Σ) (close: val): iProp Σ :=
+Definition close_spec `{!heapGS Σ} (isClosed isOpen: iProp Σ) (close: val): iProp Σ :=
   {{{ isOpen }}} close #() {{{ RET #(); isClosed }}}.
 
-Definition read_spec `{!heapG Σ} (isOpen: iProp Σ) (read: val): iProp Σ :=
+Definition read_spec `{!heapGS Σ} (isOpen: iProp Σ) (read: val): iProp Σ :=
   {{{ isOpen }}} read #() {{{ v, RET v; isOpen }}}.
 
-Definition filelib_spec `{!heapG Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
+Definition filelib_spec `{!heapGS Σ} (P0: iProp Σ) (lib: val): iProp Σ :=
   ∃ (isOpen isClosed: iProp Σ),
   □ (P0 -∗ isClosed) ∗
   match lib with
@@ -111,7 +111,7 @@ End Trace.
 Module Wrap.
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ}.
+Context `{heapGS Σ}.
 Context (N: namespace).
 
 Context (isOpen_impl isClosed_impl : iProp Σ).
@@ -183,7 +183,7 @@ Definition lib (lib_impl: val): val :=
   end.
 
 (** Correctness of the wrapper at the level of the library *)
-Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
+Lemma correct `{!heapGS Σ} N P0 (lib_impl: val) :
   filelib_spec P0 lib_impl -∗
   filelib_spec (P0 ∗ trace_is [] ∗ trace_inv N file_trace) (lib lib_impl).
 Proof.
@@ -208,21 +208,21 @@ Definition empty_state : state := Build_state ∅ [] ∅.
 
 (** The trace property [file_trace] is satisfied at every step of the execution
     at the level of the operational semantics. *)
-Lemma wrap_filelib_correct (e: val → expr) (lib: val):
-  (∀ `(heapG Σ), ⊢ filelib_spec True lib) →
-  (∀ `(heapG Σ), ⊢ ∀ P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_filelib_correct `{heapGpreS Σ} (e: val → expr) (lib_init: expr) (lib: val) (P0: iProp Σ):
+  (∀ `(heapGS Σ), ⊢ {{{ True }}} lib_init {{{ v, RET v; P0 }}}) →
+  (∀ `(heapGS Σ), ⊢ filelib_spec P0 lib) →
+  (∀ `(heapGS Σ), ⊢ ∀ P lib, filelib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
-    rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
+    rtc erased_step ([(lib_init;; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     file_trace (trace σ').
 Proof.
-  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
-  intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
-                             filelibN (@filelib_spec Σ) True e #() (Wrap.lib lib)
+  intros Hinit Hlib Hctx σ' e' Hsteps.
+  eapply (@module_invariance Σ (HeapGpreS Σ _ _ _ _)
+                             filelibN (@filelib_spec Σ) P0 e lib_init (Wrap.lib lib)
                              file_trace empty_state).
   { cbn. apply file_trace_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
-  { iIntros (? _) "!>". iApply wp_value; eauto. }
+  { iIntros (? ? ?) "!> Hφ". iApply Hinit; eauto. }
   { iIntros (?). iApply Wrap.correct. iApply Hlib. }
   eauto.
 Qed.

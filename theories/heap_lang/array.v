@@ -9,11 +9,13 @@ Set Default Proof Using "Type".
 with lists of values. It also contains array versions of the basic heap
 operations of HeapLang. *)
 
-Definition array `{!heapG Σ} (l : loc) (q : Qp) (vs : list val) : iProp Σ :=
-  ([∗ list] i ↦ v ∈ vs, (l +ₗ i) ↦{q} v)%I.
-Notation "l ↦∗{ q } vs" := (array l q vs)
-  (at level 20, q at level 50, format "l  ↦∗{ q }  vs") : bi_scope.
-Notation "l ↦∗ vs" := (array l 1 vs)
+Definition array `{!heapGS Σ} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ :=
+  ([∗ list] i ↦ v ∈ vs, (l +ₗ i) ↦{dq} v)%I.
+Notation "l ↦∗{ dq } vs" := (array l dq vs)
+  (at level 20, format "l  ↦∗{ dq }  vs") : bi_scope.
+Notation "l ↦∗{# q } vs" := (array l (DfracOwn q) vs)
+  (at level 20, format "l  ↦∗{# q }  vs") : bi_scope.
+Notation "l ↦∗ vs" := (array l (DfracOwn 1) vs)
   (at level 20, format "l  ↦∗  vs") : bi_scope.
 
 (** We have [FromSep] and [IntoSep] instances to split the fraction (via the
@@ -21,27 +23,26 @@ Notation "l ↦∗ vs" := (array l 1 vs)
 lead to overlapping instances. *)
 
 Section lifting.
-Context `{!heapG Σ}.
+Context `{!heapGS Σ}.
 Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val → iProp Σ.
 Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types vs : list val.
-Implicit Types q : Qp.
 Implicit Types l : loc.
 Implicit Types sz off : nat.
 
 Global Instance array_timeless l q vs : Timeless (array l q vs) := _.
 
-Global Instance array_fractional l vs : Fractional (λ q, l ↦∗{q} vs)%I := _.
+Global Instance array_fractional l vs : Fractional (λ q, l ↦∗{#q} vs)%I := _.
 Global Instance array_as_fractional l q vs :
-  AsFractional (l ↦∗{q} vs) (λ q, l ↦∗{q} vs)%I q.
+  AsFractional (l ↦∗{#q} vs) (λ q, l ↦∗{#q} vs)%I q.
 Proof. split; done || apply _. Qed.
 
 Lemma array_nil l q : l ↦∗{q} [] ⊣⊢ emp.
 Proof. by rewrite /array. Qed.
 
-Lemma array_singleton l q v : l ↦∗{q} [v] ⊣⊢ l ↦{q} v.
+Lemma array_singleton l dq v : l ↦∗{dq} [v] ⊣⊢ l ↦{dq} v.
 Proof. by rewrite /array /= right_id loc_add_0. Qed.
 
 Lemma array_app l q vs ws :

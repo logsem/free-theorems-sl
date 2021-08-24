@@ -50,10 +50,10 @@ Record repr {Σ: gFunctors} `{model} := {
 }.
 
 Arguments repr Σ {_}.
-Hint Resolve is_P_persistent : typeclass_instances.
+#[export] Hint Resolve is_P_persistent : typeclass_instances.
 
 Section Specs.
-Context `{!heapG Σ}.
+Context `{!heapGS Σ}.
 Context `{model} (R: repr Σ).
 Context (E: coPset).
 
@@ -66,12 +66,12 @@ Definition op_spec (op: val) : iProp Σ :=
   ∀ γ (x y: val),
     is_P R γ x -∗
     <<< ∀ s, P_state R γ s >>>
-      op x y @ ⊤∖E
+      op x y @ E
     <<< ∃ s' y', P_state R γ s' ∗ ⌜f s y s' ∧ r s y y'⌝, RET y' >>>.
 
 End Specs.
 
-Definition lib_spec `{model} (E: coPset) `{!heapG Σ} (P0: iProp Σ) (lib: val) :
+Definition lib_spec `{model} (E: coPset) `{!heapGS Σ} (P0: iProp Σ) (lib: val) :
     iProp Σ :=
   ∃ (R: repr Σ),
   match lib with
@@ -256,12 +256,12 @@ Definition linΣ `{model} : gFunctors :=
     GFunctor (excl_authR (leibnizO tag_state));
     GFunctor (authR (gmapUR string (agreeR (leibnizO gname))))].
 
-Instance subG_linG `{model}: subG linΣ Σ → linG Σ.
+Instance subG_linG {Σ} `{model}: subG linΣ Σ → linG Σ.
 Proof. solve_inG. Qed.
 
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ, model, linG Σ}.
+Context `{heapGS Σ, model, linG Σ}.
 Context (N N': namespace) (HNN': N ## N').
 Definition mainN := N' .@ "main".
 Definition traceN := N' .@ "trace".
@@ -354,7 +354,7 @@ Lemma tags_state_lookup_sub γ (m m':gmap string (agree (leibnizO _)))
 Proof.
   iIntros (Hkv) "Hf Ha Hm".
   iDestruct (own_op with "[$Ha $Hf]") as "HH".
-  iDestruct (own_valid with "HH") as %[Hsub Hv]%auth_both_valid.
+  iDestruct (own_valid with "HH") as %[Hsub Hv]%auth_both_valid_discrete.
   pose proof (dom_included _ _ Hsub) as Hsub_dom.
   rewrite lookup_included in Hsub |- * => Hsub. specialize (Hsub tag).
   assert (tag ∈ dom (gset string) m') as Htag''.
@@ -634,7 +634,7 @@ Proof using HNN'.
 
   rewrite /atomic_acc /=.
   iInv mainN as ">HI" "Hclose". iDestruct "HI" as (s) "HI".
-  iMod "HAU" as (_s) "(HH & Hnext)". by set_solver.
+  iMod "HAU" as (_s) "(HH & Hnext)".
   iDestruct "HH" as (γi' γs' γe') "(HHi & HHf & Hγf)".
   iDestruct (main_inv_gnames_eq with "Hγf HI") as %?. destruct_and!; simplify_eq.
   iDestruct (main_inv_state_eq with "HHf HI") as %?. simplify_eq.
@@ -677,7 +677,7 @@ Definition lib (lib_impl: val): val :=
   | _ => #()
   end.
 
-Lemma correct `{heapG Σ, model, linG Σ} (N N': namespace) P0 (lib_impl: val) :
+Lemma correct `{heapGS Σ, linG Σ} (N N': namespace) P0 (lib_impl: val) :
   N ## N' →
   lib_spec (↑N) P0 lib_impl -∗
   lib_spec (↑N ∪ ↑(N'.@"main"))
@@ -701,23 +701,22 @@ Definition empty_state : state := Build_state ∅ [] ∅.
 
 (** At every step of the execution, the trace from the operational semantics is
     [linearizable]. *)
-Lemma wrap_lib_correct `{model} (e: val → expr) (lib: val):
-  (∀ `(heapG Σ), ⊢ lib_spec (↑libN) True lib) →
-  (∀ `(heapG Σ), ⊢ ∀ P E lib, lib_spec E P lib -∗
+Lemma wrap_lib_correct `{heapGpreS Σ, model, Wrap.linG Σ} (e: val → expr) (lib_init: expr) (lib: val) (P0: iProp Σ):
+  (∀ `(heapGS Σ), ⊢ {{{ True }}} lib_init {{{ v, RET v; P0 }}}) →
+  (∀ `(heapGS Σ), ⊢ lib_spec (↑libN) P0 lib) →
+  (∀ `(heapGS Σ), ⊢ ∀ P E lib, lib_spec E P lib -∗
                               {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
-    rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
+    rtc erased_step ([(lib_init;; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     linearizable (trace σ').
 Proof.
-  set (Σ := #[Wrap.linΣ; invΣ; gen_heapΣ loc val; traceΣ;
-              proph_mapΣ proph_id (val * val)]).
-  intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
-    (wrapN.@"trace") (@lib_spec _ (↑libN ∪ ↑(wrapN.@"main")) Σ) True e #()
+  intros Hinit Hlib Hctx σ' e' Hsteps.
+  eapply (@module_invariance Σ (HeapGpreS Σ _ _ _ _)
+    (wrapN.@"trace") (@lib_spec _ (↑libN ∪ ↑(wrapN.@"main")) Σ) P0 e lib_init
     (Wrap.lib lib) linearizable empty_state).
   { cbn. apply linearizable_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
-  { iIntros (? _) "!>". iApply wp_value; eauto. }
-  { iIntros (?). iApply Wrap.correct. solve_ndisj. iApply Hlib. }
+  { iIntros (? ? ?) "!>". iApply Hinit; eauto. }
+  { iIntros (?). iApply Wrap.correct; eauto. solve_ndisj. iApply Hlib. }
   eauto.
 Qed.

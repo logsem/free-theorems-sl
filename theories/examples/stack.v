@@ -13,18 +13,18 @@ Implicit Types t : list val.
     initialize the library, instead of a condition □ (P0 -∗ ∃ s, Stack [] s).
     This is purely a matter of style. *)
 
-Definition create_spec `{!heapG Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
+Definition create_spec `{!heapGS Σ} P0 (Stack: list val → val → iProp Σ) (create: val) : iProp Σ :=
   {{{ P0 }}}
     create #()
   {{{ s, RET s; Stack [] s }}}.
 
-Definition push_spec `{!heapG Σ} (Stack: list val → val → iProp Σ) (push: val) : iProp Σ :=
+Definition push_spec `{!heapGS Σ} (Stack: list val → val → iProp Σ) (push: val) : iProp Σ :=
   ∀ l s x,
      {{{ Stack l s ∗ ⌜x ≠ #()⌝ }}}
        push s x
      {{{ RET #(); Stack (x :: l) s }}}.
 
-Definition pop_spec `{!heapG Σ} (Stack: list val → val → iProp Σ) (pop: val) : iProp Σ :=
+Definition pop_spec `{!heapGS Σ} (Stack: list val → val → iProp Σ) (pop: val) : iProp Σ :=
   ∀ l s,
    {{{ Stack l s }}}
      pop s
@@ -34,7 +34,7 @@ Definition pop_spec `{!heapG Σ} (Stack: list val → val → iProp Σ) (pop: va
      | x :: l' => ⌜ v = x ⌝ ∗ Stack l' s
      end }}}.
 
-Definition stacklib_spec `{!heapG Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
+Definition stacklib_spec `{!heapGS Σ} (P0 : iProp Σ) (lib: val): iProp Σ :=
   ∃ (Stack : list val → val → iProp Σ),
     match lib with
     | (create, push, pop)%V =>
@@ -79,7 +79,7 @@ End Trace.
 Module Wrap.
 Section S.
 Context {Σ: gFunctors}.
-Context `{heapG Σ}.
+Context `{heapGS Σ}.
 Context (N: namespace).
 
 Context (stack_impl: list val → val → iProp Σ).
@@ -166,7 +166,7 @@ Definition lib (lib_impl: val): val :=
   end.
 
 (** Correctness of the wrapper at the level of the entire library *)
-Lemma correct `{!heapG Σ} N P0 (lib_impl: val) :
+Lemma correct `{!heapGS Σ} N P0 (lib_impl: val) :
   stacklib_spec P0 lib_impl -∗
   stacklib_spec (P0 ∗ trace_is [] ∗ trace_inv N good_stack_trace) (lib lib_impl).
 Proof.
@@ -191,26 +191,27 @@ Definition empty_state : state := Build_state ∅ [] ∅.
    We obtain the following theorem:
 
      For any library implementation [lib],
+     with initialization code [lib_init],
      for any client code [e] verified against the library,
      when running the client against the (wrapped) library,
      the trace of calls observed at any step satisfies the expected trace property
      [good_stack_trace].
 *)
-Lemma wrap_stacklib_correct (e: val → expr) (lib: val):
-  (∀ `(heapG Σ), ⊢ stacklib_spec True lib) →
-  (∀ `(heapG Σ), ⊢ ∀ P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
+Lemma wrap_stacklib_correct `{heapGpreS Σ} (e: val → expr) (lib_init: expr) (lib: val) (P0: iProp Σ):
+  (∀ `(heapGS Σ), ⊢ {{{ True }}} lib_init {{{ v, RET v; P0 }}}) →
+  (∀ `(heapGS Σ), ⊢ stacklib_spec P0 lib) →
+  (∀ `(heapGS Σ), ⊢ ∀ P lib, stacklib_spec P lib -∗ {{{ P }}} e lib {{{ v, RET v; True }}}) →
   ∀ σ' e',
-    rtc erased_step ([(#();; e (Wrap.lib lib))%E], empty_state) (e', σ') →
+    rtc erased_step ([(lib_init;; e (Wrap.lib lib))%E], empty_state) (e', σ') →
     good_stack_trace (trace σ').
 Proof.
-  set (Σ := #[invΣ; gen_heapΣ loc val; traceΣ; proph_mapΣ proph_id (val * val)]).
-  intros Hlib Hctx σ' e' Hsteps.
-  eapply (@module_invariance Σ (HeapPreG Σ _ _ _ _)
-                             stacklibN (@stacklib_spec Σ) True e #() (Wrap.lib lib)
+  intros Hinit Hlib Hctx σ' e' Hsteps.
+  eapply (@module_invariance Σ (HeapGpreS Σ _ _ _ _)
+                             stacklibN (@stacklib_spec Σ) P0 e lib_init (Wrap.lib lib)
                              good_stack_trace empty_state).
   { cbn. apply good_stack_trace_nil. }
   { iIntros (? ? ?) "?". by iApply Hctx. }
-  { iIntros (? _) "!>". iApply wp_value; eauto. }
+  { iIntros (? ? ?) "!> Hφ". iApply Hinit; eauto. }
   { iIntros (?). iApply Wrap.correct. iApply Hlib. }
   eauto.
 Qed.
