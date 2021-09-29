@@ -215,7 +215,7 @@ Proof.
 Qed.
 
 Instance heapG_irisG `{!heapGS Σ} : irisGS heap_lang Σ := {
-  iris_invG := heapG_invG;
+  iris_invGS := heapG_invG;
   state_interp σ _ κs _ :=
     (gen_heap_interp σ.(heap)
      ∗ trace_auth σ.(trace)
