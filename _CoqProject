@@ -13,6 +13,8 @@ theories/examples/well_bracketed.v
 theories/examples/traversable_stack.v
 theories/examples/linearizability.v
 theories/examples/stack_impl.v
+theories/examples/sequential.v
+theories/examples/new_awkward.v
 
 theories/heap_lang/lang.v
 theories/heap_lang/lifting.v
